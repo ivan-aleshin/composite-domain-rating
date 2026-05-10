@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR/branch when new commits are pushed
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-compile:
+    name: Lint and dbt compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure dbt profile (CI)
+        run: |
+          # The scaffold only runs `dbt parse`, so no real BigQuery connection is needed yet.
+          # Switch this to a service account profile when CI starts running dbt build.
+          cat > dbt/profiles.yml <<'EOF'
+          composite_domain_rating:
+            target: ci
+            outputs:
+              ci:
+                type: bigquery
+                method: oauth
+                project: ci-placeholder
+                dataset: ci_lint
+                location: US
+                threads: 1
+          EOF
+
+      - name: Install dbt packages
+        working-directory: dbt
+        run: dbt deps
+
+      - name: dbt parse
+        working-directory: dbt
+        run: dbt parse
+
+      - name: SQLFluff lint
+        run: sqlfluff lint dbt/models dbt/macros dbt/tests --disable-progress-bar
