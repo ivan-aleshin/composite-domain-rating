@@ -1,0 +1,34 @@
+# Copy this file to ~/.dbt/profiles.yml and replace placeholders.
+# DO NOT commit the real profiles.yml — it's in .gitignore.
+
+composite_domain_rating:
+  target: dev
+  outputs:
+    # Local development — uses gcloud auth application-default login
+    dev:
+      type: bigquery
+      method: oauth
+      project: YOUR_GCP_PROJECT_ID    # e.g., composite-domain-rating-sandbox
+      dataset: dbt_dev_ivan
+      location: US                    # MUST be US — public datasets (CrUX, HTTP Archive) live in US
+      threads: 4
+      timeout_seconds: 300
+      maximum_bytes_billed: 21474836480  # 20 GiB cost guardrail
+      priority: interactive
+
+    # CI / production — uses service account key
+    prod:
+      type: bigquery
+      method: service-account-json
+      project: YOUR_GCP_PROJECT_ID
+      dataset: prod
+      location: US
+      threads: 4
+      timeout_seconds: 600
+      maximum_bytes_billed: 21474836480
+      priority: batch
+      keyfile_json:
+        # Populated from GCP_SA_KEY GitHub secret in CI
+        # See .github/workflows/*.yml for the exact pattern
+        type: service_account
+        # ... rest of service account fields

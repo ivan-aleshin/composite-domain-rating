@@ -1,0 +1,26 @@
+version: 2
+
+# Sources are added incrementally as ingestion scripts are implemented.
+# See ROADMAP.md for the public milestone sequence.
+
+sources:
+  - name: raw
+    description: Raw data loaded from external sources by ingestion scripts.
+    database: "{{ target.project }}"
+    schema: raw
+    tables: []
+    # Example structure (uncomment in Task 0.5):
+    # tables:
+    #   - name: tranco_domains
+    #     description: Tranco top 1M domains, 30-day aggregated list.
+    #     loaded_at_field: ingested_at
+    #     freshness:
+    #       warn_after: { count: 8, period: day }
+    #       error_after: { count: 14, period: day }
+    #     columns:
+    #       - name: registered_domain
+    #         tests:
+    #           - not_null
+    #       - name: tranco_rank
+    #         tests:
+    #           - not_null

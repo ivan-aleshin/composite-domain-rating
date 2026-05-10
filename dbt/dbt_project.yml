@@ -1,0 +1,44 @@
+name: 'composite_domain_rating'
+version: '0.1.0'
+config-version: 2
+
+profile: 'composite_domain_rating'
+
+# Path settings
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Project-wide variables
+vars:
+  # Methodology version — bump when scoring formula changes
+  methodology_version: 'v1.0.0'
+
+  # Minimum number of ranking sources required to produce a consensus score
+  # Domains with fewer sources are flagged as 'sparse' with NULL score
+  min_sources_for_score: 3
+
+  # CrUX snapshot month — override for backfill or fallback when current
+  # month not yet published. Default: latest available.
+  # Format: 'YYYYMM' (e.g., '202604')
+  # crux_yyyymm: '202604'
+
+  # Snapshot date for current run — override for backfill
+  # Default: current date at runtime
+  # snapshot_date: '2026-05-04'
+
+  # Cost guardrail — query will fail rather than scan more than this
+  # Set to 20 GB to protect sandbox 1 TB/month limit
+  maximum_bytes_billed: 21474836480  # 20 GiB
+
+# Query comment — visible in BigQuery query history for debugging
+query-comment:
+  comment: "{{ query_comment(node) }}"
+  append: true
