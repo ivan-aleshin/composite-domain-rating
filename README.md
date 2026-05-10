@@ -3,6 +3,7 @@
 > Consensus domain ranking aggregated from independent public sources using
 > rank aggregation in the Borda family.
 
+[![CI](https://github.com/ivan-aleshin/composite-domain-rating/actions/workflows/ci.yml/badge.svg)](https://github.com/ivan-aleshin/composite-domain-rating/actions/workflows/ci.yml)
 [![dbt](https://img.shields.io/badge/dbt-1.8+-orange.svg)](https://www.getdbt.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -52,7 +53,7 @@ pip install -r requirements.txt
 
 # dbt setup (assumes BigQuery sandbox already configured)
 cd dbt
-cp profiles.yml.example ~/.dbt/profiles.yml  # then edit with your project_id
+mkdir -p ~/.dbt && cp profiles.yml.example ~/.dbt/profiles.yml  # then edit with your project_id
 dbt deps
 dbt debug
 ```
