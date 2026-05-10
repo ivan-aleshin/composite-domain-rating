@@ -1,0 +1,20 @@
+# dbt core + BigQuery adapter
+dbt-core>=1.8.0,<1.9.0
+dbt-bigquery>=1.8.0,<1.9.0
+
+# Domain parsing
+tldextract>=5.1.0
+idna>=3.7
+
+# Data ingestion
+pandas>=2.2.0
+requests>=2.32.0
+pyyaml>=6.0
+google-cloud-bigquery>=3.20.0
+
+# Linting (used by pre-commit and CI)
+sqlfluff>=3.0.0
+sqlfluff-templater-dbt>=3.0.0
+
+# CLI utilities
+click>=8.1.0

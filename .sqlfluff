@@ -1,0 +1,43 @@
+[sqlfluff]
+dialect = bigquery
+templater = dbt
+runaway_limit = 10
+max_line_length = 120
+indent_unit = space
+
+# Exclude rules that conflict with dbt patterns
+exclude_rules = LT05, ST05
+
+[sqlfluff:indentation]
+indent_unit = space
+tab_space_size = 4
+indented_joins = false
+indented_using_on = true
+
+[sqlfluff:layout:type:comma]
+spacing_before = touch
+line_position = trailing
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = upper
+
+[sqlfluff:rules:references.special_chars]
+allow_space_in_identifier = false
+additional_allowed_characters = ["-"]
+ignore_words = none
+
+[sqlfluff:templater:dbt]
+project_dir = ./dbt
+profiles_dir = ./dbt

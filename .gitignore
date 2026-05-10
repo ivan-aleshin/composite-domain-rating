@@ -1,0 +1,46 @@
+# dbt
+target/
+dbt_packages/
+logs/
+.user.yml
+
+# Credentials
+profiles.yml
+.env
+*.json
+!_meta.json
+!CITATION.cff
+keyfile*.json
+service-account*.json
+
+# Data (large files; only metadata is committed)
+data/raw/*/*/*
+!data/raw/*/*/_meta.json
+!data/raw/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.eggs/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Build artifacts
+dist/
+build/
+*.log
