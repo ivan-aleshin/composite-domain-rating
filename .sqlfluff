@@ -40,4 +40,4 @@ ignore_words = none
 
 [sqlfluff:templater:dbt]
 project_dir = ./dbt
-profiles_dir = ./dbt
+profiles_dir = ~/.dbt/
