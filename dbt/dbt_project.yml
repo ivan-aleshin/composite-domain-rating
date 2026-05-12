@@ -42,3 +42,16 @@ vars:
 query-comment:
   comment: "{{ query_comment(node) }}"
   append: true
+
+models:
+  composite_domain_rating:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: ephemeral
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: marts
+      +on_schema_change: sync_all_columns
