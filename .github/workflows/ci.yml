@@ -36,7 +36,8 @@ jobs:
         run: |
           # The scaffold only runs `dbt parse`, so no real BigQuery connection is needed yet.
           # Switch this to a service account profile when CI starts running dbt build.
-          cat > dbt/profiles.yml <<'EOF'
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml <<'EOF'
           composite_domain_rating:
             target: ci
             outputs:
