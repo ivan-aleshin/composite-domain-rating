@@ -12,3 +12,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public roadmap.
 - Tranco downloader, BigQuery raw loader, initial dbt mart, and score-direction test.
 - Majestic Million downloader, BigQuery raw loader, staging/intermediate models, and mart integration.
+- Source registry refactor for ingestion/load scripts and a mart `sources_count` invariant test.
