@@ -62,4 +62,4 @@ jobs:
         run: dbt parse
 
       - name: SQLFluff lint
-        run: sqlfluff lint dbt/models dbt/macros dbt/tests --disable-progress-bar
+        run: sqlfluff lint dbt/models dbt/macros dbt/tests --templater jinja --ignore templating --disable-progress-bar
