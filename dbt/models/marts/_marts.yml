@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: mart_domain_consensus_score
+    description: Domain consensus score mart. Initially populated from Tranco only.
+    columns:
+      - name: registered_domain
+        description: Registered domain normalized to ASCII / punycode.
+        data_tests:
+          - unique
+          - not_null
+      - name: consensus_score
+        description: Consensus score on a 0-100 scale. Temporarily Tranco-only in the walking skeleton.
+        data_tests:
+          - not_null
+      - name: coverage_tier
+        description: Coverage tier for available ranking sources.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['full', 'high', 'partial', 'sparse']
+      - name: sources_count
+        description: Count of ranking sources present for the domain.
+        data_tests:
+          - not_null
+      - name: snapshot_date
+        description: Source snapshot date.
+        data_tests:
+          - not_null
+      - name: methodology_version
+        description: Scoring methodology version.
+        data_tests:
+          - not_null

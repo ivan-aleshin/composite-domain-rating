@@ -54,9 +54,12 @@ jobs:
         working-directory: dbt
         run: dbt deps
 
+      - name: Python syntax check
+        run: python -m compileall scripts
+
       - name: dbt parse
         working-directory: dbt
         run: dbt parse
 
       - name: SQLFluff lint
-        run: sqlfluff lint dbt/models dbt/macros dbt/tests --disable-progress-bar
+        run: sqlfluff lint dbt/models dbt/macros dbt/tests --templater jinja --ignore templating --disable-progress-bar

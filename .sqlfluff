@@ -41,3 +41,6 @@ ignore_words = none
 [sqlfluff:templater:dbt]
 project_dir = ./dbt
 profiles_dir = ~/.dbt/
+
+[sqlfluff:templater:jinja]
+apply_dbt_builtins = true

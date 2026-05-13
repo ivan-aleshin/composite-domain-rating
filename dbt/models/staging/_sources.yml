@@ -8,19 +8,27 @@ sources:
     description: Raw data loaded from external sources by ingestion scripts.
     database: "{{ target.project }}"
     schema: raw
-    tables: []
-    # Example structure (uncomment in Task 0.5):
-    # tables:
-    #   - name: tranco_domains
-    #     description: Tranco top 1M domains, 30-day aggregated list.
-    #     loaded_at_field: ingested_at
-    #     freshness:
-    #       warn_after: { count: 8, period: day }
-    #       error_after: { count: 14, period: day }
-    #     columns:
-    #       - name: registered_domain
-    #         tests:
-    #           - not_null
-    #       - name: tranco_rank
-    #         tests:
-    #           - not_null
+    tables:
+      - name: tranco_domains
+        description: Tranco top 1M domains, normalized to registered domains.
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: { count: 8, period: day }
+          error_after: { count: 14, period: day }
+        columns:
+          - name: registered_domain
+            description: Registered domain normalized to ASCII / punycode.
+            data_tests:
+              - not_null
+          - name: tranco_rank
+            description: Best Tranco rank observed for the registered domain.
+            data_tests:
+              - not_null
+          - name: snapshot_date
+            description: Source snapshot date loaded by the ingestion script.
+            data_tests:
+              - not_null
+          - name: ingested_at
+            description: Timestamp when the raw table was created or refreshed.
+            data_tests:
+              - not_null
