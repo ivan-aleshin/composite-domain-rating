@@ -238,8 +238,8 @@ For a portfolio context, the project demonstrates:
 - **Honest handling of sparse data** — explicit coverage tiers, no imputation
 - **Heterogeneous source integration** — different formats, scales, update
   frequencies, licensing terms
-- **Production-style dbt** — full layer separation, tests, snapshots,
-  source freshness, dbt-expectations
+- **Production-style dbt** — full layer separation, tests, source freshness,
+  dbt-expectations, and archive-aware historical data design
 - **CI/CD discipline** — automated linting, weekly refresh, automated docs deploy
 - **Resilience patterns** — graceful degradation, staleness tracking, tiered alerting
 - **Cost discipline within free-tier constraints** — `maximum_bytes_billed`,
