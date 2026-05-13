@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
 from dataclasses import asdict, dataclass
@@ -102,6 +103,7 @@ def ensure_empty_tranco_table(
         CAST(NULL AS INT64) AS tranco_rank,
         CAST(NULL AS DATE) AS snapshot_date,
         CAST(NULL AS TIMESTAMP) AS ingested_at
+    FROM (SELECT 1)
     WHERE FALSE
     """
     client.query(query, job_config=query_config(maximum_bytes_billed)).result()
@@ -138,8 +140,9 @@ def insert_source_update(
     age_days: int | None,
     source_metadata: dict[str, Any] | None,
     error_message: str | None,
+    maximum_bytes_billed: int,
 ) -> None:
-    table_id = table_ref(project, meta_dataset, SOURCE_UPDATE_LOG_TABLE)
+    del maximum_bytes_billed
     row = {
         "source": source,
         "update_started_at": started_at.isoformat(),
@@ -150,9 +153,16 @@ def insert_source_update(
         "source_metadata": source_metadata,
         "error_message": error_message,
     }
-    errors = client.insert_rows_json(table_id, [row])
-    if errors:
-        raise RuntimeError(f"Failed to insert source update log row: {errors}")
+    payload = io.BytesIO((json.dumps(row, sort_keys=True) + "\n").encode("utf-8"))
+    job_config = bigquery.LoadJobConfig(
+        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+    )
+    client.load_table_from_file(
+        payload,
+        table_ref(project, meta_dataset, SOURCE_UPDATE_LOG_TABLE),
+        job_config=job_config,
+    ).result()
 
 
 def last_successful_update(
@@ -265,6 +275,7 @@ def handle_failed_fresh_source(
                 age_days=age_days,
                 source_metadata=source_metadata,
                 error_message=error_message,
+                maximum_bytes_billed=maximum_bytes_billed,
             )
             return LoadResult(
                 source=source,
@@ -288,6 +299,7 @@ def handle_failed_fresh_source(
         age_days=None,
         source_metadata=source_metadata,
         error_message=error_message,
+        maximum_bytes_billed=maximum_bytes_billed,
     )
     return LoadResult(
         source=source,
@@ -311,6 +323,7 @@ def load_tranco(
 ) -> LoadResult:
     started_at = utc_now()
     ensure_source_update_log(client, project, meta_dataset)
+    metadata = None
 
     try:
         metadata = read_local_meta(input_root, "tranco", snapshot_date)
@@ -329,33 +342,12 @@ def load_tranco(
             snapshot_date,
             maximum_bytes_billed,
         )
-        insert_source_update(
-            client=client,
-            project=project,
-            meta_dataset=meta_dataset,
-            source="tranco",
-            started_at=started_at,
-            status="success",
-            row_count=row_count,
-            age_days=0,
-            source_metadata=metadata,
-            error_message=None,
-        )
-        return LoadResult(
-            source="tranco",
-            status="fresh",
-            snapshot_date=snapshot_date.isoformat(),
-            row_count=row_count,
-            age_days=0,
-            raw_table=table_ref(project, raw_dataset, TRANCO_RAW_TABLE),
-            error=None,
-        )
     except Exception as error:
-        metadata = None
-        try:
-            metadata = read_local_meta(input_root, "tranco", snapshot_date)
-        except (FileNotFoundError, json.JSONDecodeError):
-            pass
+        if metadata is None:
+            try:
+                metadata = read_local_meta(input_root, "tranco", snapshot_date)
+            except (FileNotFoundError, json.JSONDecodeError):
+                pass
 
         return handle_failed_fresh_source(
             client=client,
@@ -369,6 +361,29 @@ def load_tranco(
             error_message=str(error),
             maximum_bytes_billed=maximum_bytes_billed,
         )
+
+    insert_source_update(
+        client=client,
+        project=project,
+        meta_dataset=meta_dataset,
+        source="tranco",
+        started_at=started_at,
+        status="success",
+        row_count=row_count,
+        age_days=0,
+        source_metadata=metadata,
+        error_message=None,
+        maximum_bytes_billed=maximum_bytes_billed,
+    )
+    return LoadResult(
+        source="tranco",
+        status="fresh",
+        snapshot_date=snapshot_date.isoformat(),
+        row_count=row_count,
+        age_days=0,
+        raw_table=table_ref(project, raw_dataset, TRANCO_RAW_TABLE),
+        error=None,
+    )
 
 
 def parse_args() -> argparse.Namespace:

@@ -13,9 +13,8 @@ profiles.yml
 keyfile*.json
 service-account*.json
 
-# Data (large files; only metadata is committed)
-data/raw/*/*/*
-!data/raw/*/*/_meta.json
+# Data (raw source files and local lineage are local-only)
+data/raw/**
 !data/raw/.gitkeep
 
 # Python
