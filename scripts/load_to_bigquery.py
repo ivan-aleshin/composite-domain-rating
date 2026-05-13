@@ -140,9 +140,7 @@ def insert_source_update(
     age_days: int | None,
     source_metadata: dict[str, Any] | None,
     error_message: str | None,
-    maximum_bytes_billed: int,
 ) -> None:
-    del maximum_bytes_billed
     row = {
         "source": source,
         "update_started_at": started_at.isoformat(),
@@ -275,7 +273,6 @@ def handle_failed_fresh_source(
                 age_days=age_days,
                 source_metadata=source_metadata,
                 error_message=error_message,
-                maximum_bytes_billed=maximum_bytes_billed,
             )
             return LoadResult(
                 source=source,
@@ -299,7 +296,6 @@ def handle_failed_fresh_source(
         age_days=None,
         source_metadata=source_metadata,
         error_message=error_message,
-        maximum_bytes_billed=maximum_bytes_billed,
     )
     return LoadResult(
         source=source,
@@ -373,7 +369,6 @@ def load_tranco(
         age_days=0,
         source_metadata=metadata,
         error_message=None,
-        maximum_bytes_billed=maximum_bytes_billed,
     )
     return LoadResult(
         source="tranco",

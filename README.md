@@ -7,8 +7,9 @@
 [![dbt](https://img.shields.io/badge/dbt-1.8+-orange.svg)](https://www.getdbt.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Status**: early implementation scaffold. The methodology and project shape are
-documented; the ingestion pipeline and dbt models are being built incrementally.
+**Status**: first end-to-end source slice implemented. Tranco ingestion,
+BigQuery raw loading, the first dbt models, and score-direction tests are in
+place; additional sources and release automation are being built incrementally.
 
 ## Overview
 
@@ -31,12 +32,12 @@ lineage, CI checks, and a public derived CSV planned as the project matures.
 
 ## Current Scope
 
-The first working version focuses on a narrow vertical slice:
+The current working slice focuses on Tranco as the first source:
 
-- ingest one ranking source end to end
-- normalize registered domains consistently
-- load raw data into BigQuery
-- add the first dbt staging, intermediate, and mart models
+- download and normalize Tranco domains
+- load normalized raw data into BigQuery
+- track source update status in `meta.source_update_log`
+- build the first staging, intermediate, and mart dbt models
 - validate score direction and basic data quality
 - publish only derived output, not raw third-party rankings
 
@@ -57,6 +58,31 @@ mkdir -p ~/.dbt && cp profiles.yml.example ~/.dbt/profiles.yml  # then edit with
 dbt deps
 dbt debug
 ```
+
+## Tranco walking skeleton
+
+After configuring local BigQuery credentials, the first source can be run end to
+end:
+
+```bash
+# From the repository root
+python scripts/download_sources.py --source tranco --date YYYY-MM-DD --output-dir data/raw
+
+python scripts/load_to_bigquery.py \
+  --source tranco \
+  --date YYYY-MM-DD \
+  --input-dir data/raw \
+  --project YOUR_GCP_PROJECT_ID \
+  --location US
+
+cd dbt
+dbt run --select stg_tranco__domains int_domains_tranco mart_domain_consensus_score
+dbt test --select stg_tranco__domains mart_domain_consensus_score score_direction
+```
+
+Raw source files under `data/raw/` are local-only and ignored by git. Production
+fallback for stale sources is based on private BigQuery raw tables and
+`meta.source_update_log`, not local cache files.
 
 ## Disclaimer
 
