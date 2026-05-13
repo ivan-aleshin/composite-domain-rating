@@ -54,6 +54,9 @@ jobs:
         working-directory: dbt
         run: dbt deps
 
+      - name: Python syntax check
+        run: python -m compileall scripts
+
       - name: dbt parse
         working-directory: dbt
         run: dbt parse
