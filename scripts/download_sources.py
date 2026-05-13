@@ -23,6 +23,7 @@ from domain_utils import normalize_registered_domain
 
 TRANCO_API_DATE_URL = "https://tranco-list.eu/api/lists/date/{snapshot_date}"
 TRANCO_TOP_1M_URL = "https://tranco-list.eu/top-1m.csv.zip"
+MAJESTIC_MILLION_URL = "https://downloads.majestic.com/majestic_million.csv"
 LOCAL_CACHE_STALE_MAX_AGE_DAYS = 14
 REQUEST_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_ATTEMPTS = 3
@@ -40,7 +41,7 @@ class SourceResult:
     row_count: int
     valid_row_count: int
     duplicate_registered_domains: int
-    raw_zip_path: str | None
+    raw_file_path: str | None
     normalized_csv_path: str | None
     error: str | None
 
@@ -161,6 +162,62 @@ def normalize_tranco_zip(zip_path: Path, normalized_csv_path: Path) -> tuple[int
     return row_count, len(best_rank_by_domain), duplicate_count
 
 
+def _int_or_none(value: str | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def normalize_majestic_csv(raw_csv_path: Path, normalized_csv_path: Path) -> tuple[int, int, int]:
+    row_count = 0
+    duplicate_count = 0
+    best_ref_subnets_by_domain: dict[str, int] = {}
+    raw_domains_by_registered_domain: dict[str, set[str]] = {}
+
+    with raw_csv_path.open("r", newline="", encoding="utf-8-sig") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            raw_domain = row.get("Domain") or row.get("domain")
+            ref_subnets = _int_or_none(row.get("RefSubNets") or row.get("ref_subnets"))
+            if raw_domain is None or ref_subnets is None:
+                continue
+
+            row_count += 1
+            registered_domain = normalize_registered_domain(raw_domain)
+            if registered_domain is None:
+                continue
+
+            raw_domains_by_registered_domain.setdefault(registered_domain, set()).add(raw_domain.strip().lower())
+            previous_ref_subnets = best_ref_subnets_by_domain.get(registered_domain)
+            if previous_ref_subnets is None or ref_subnets > previous_ref_subnets:
+                if previous_ref_subnets is not None:
+                    duplicate_count += 1
+                best_ref_subnets_by_domain[registered_domain] = ref_subnets
+            else:
+                duplicate_count += 1
+
+    normalized_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with normalized_csv_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["registered_domain", "ref_subnets", "subdomains_seen"])
+        for registered_domain, ref_subnets in sorted(
+            best_ref_subnets_by_domain.items(),
+            key=lambda item: (-item[1], item[0]),
+        ):
+            writer.writerow(
+                [
+                    registered_domain,
+                    ref_subnets,
+                    len(raw_domains_by_registered_domain[registered_domain]),
+                ]
+            )
+
+    return row_count, len(best_ref_subnets_by_domain), duplicate_count
+
+
 def latest_valid_snapshot(source_dir: Path, now: datetime) -> Path | None:
     if not source_dir.exists():
         return None
@@ -178,7 +235,12 @@ def latest_valid_snapshot(source_dir: Path, now: datetime) -> Path | None:
             continue
         if now - downloaded_at > timedelta(days=LOCAL_CACHE_STALE_MAX_AGE_DAYS):
             continue
-        if not (meta_path.parent / "tranco_domains.csv").exists():
+        source = payload.get("source")
+        normalized_file_name = {
+            "tranco": "tranco_domains.csv",
+            "majestic": "majestic_domains.csv",
+        }.get(source)
+        if normalized_file_name is None or not (meta_path.parent / normalized_file_name).exists():
             continue
         candidates.append((downloaded_at, meta_path.parent))
 
@@ -190,7 +252,7 @@ def latest_valid_snapshot(source_dir: Path, now: datetime) -> Path | None:
 def stale_result(snapshot_dir: Path, requested_date: date, error: Exception, now: datetime) -> SourceResult:
     meta = json.loads((snapshot_dir / "_meta.json").read_text(encoding="utf-8"))
     return SourceResult(
-        source="tranco",
+        source=str(meta.get("source", "unknown")),
         status="stale",
         snapshot_date=requested_date.isoformat(),
         downloaded_at=now.isoformat(),
@@ -199,15 +261,19 @@ def stale_result(snapshot_dir: Path, requested_date: date, error: Exception, now
         row_count=int(meta.get("row_count", 0)),
         valid_row_count=int(meta.get("valid_row_count", 0)),
         duplicate_registered_domains=int(meta.get("duplicate_registered_domains", 0)),
-        raw_zip_path=meta.get("raw_zip_path"),
+        raw_file_path=meta.get("raw_file_path") or meta.get("raw_zip_path"),
         normalized_csv_path=meta.get("normalized_csv_path"),
         error=str(error),
     )
 
 
 def missing_result(requested_date: date, error: Exception, now: datetime) -> SourceResult:
+    return missing_source_result("tranco", requested_date, error, now)
+
+
+def missing_source_result(source: str, requested_date: date, error: Exception, now: datetime) -> SourceResult:
     return SourceResult(
-        source="tranco",
+        source=source,
         status="missing",
         snapshot_date=requested_date.isoformat(),
         downloaded_at=now.isoformat(),
@@ -216,7 +282,7 @@ def missing_result(requested_date: date, error: Exception, now: datetime) -> Sou
         row_count=0,
         valid_row_count=0,
         duplicate_registered_domains=0,
-        raw_zip_path=None,
+        raw_file_path=None,
         normalized_csv_path=None,
         error=str(error),
     )
@@ -249,22 +315,22 @@ def download_tranco(
                 max_attempts=max_attempts,
                 backoff_seconds=retry_backoff_seconds,
             )
-            raw_zip_path = snapshot_dir / "top-1m.csv.zip"
-            shutil.move(str(temp_zip), raw_zip_path)
+            raw_file_path = snapshot_dir / "top-1m.csv.zip"
+            shutil.move(str(temp_zip), raw_file_path)
 
         normalized_csv_path = snapshot_dir / "tranco_domains.csv"
-        row_count, valid_row_count, duplicate_count = normalize_tranco_zip(raw_zip_path, normalized_csv_path)
+        row_count, valid_row_count, duplicate_count = normalize_tranco_zip(raw_file_path, normalized_csv_path)
         result = SourceResult(
             source="tranco",
             status="fresh",
             snapshot_date=snapshot_date.isoformat(),
             downloaded_at=now.isoformat(),
             list_id=list_id,
-            file_hash=sha256_file(raw_zip_path),
+            file_hash=sha256_file(raw_file_path),
             row_count=row_count,
             valid_row_count=valid_row_count,
             duplicate_registered_domains=duplicate_count,
-            raw_zip_path=str(raw_zip_path),
+            raw_file_path=str(raw_file_path),
             normalized_csv_path=str(normalized_csv_path),
             error=None,
         )
@@ -283,10 +349,66 @@ def download_tranco(
         return result
 
 
+def download_majestic(
+    output_root: Path,
+    snapshot_date: date,
+    simulate_missing: bool = False,
+    allow_local_stale_cache: bool = False,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+) -> SourceResult:
+    now = utc_now()
+    source_dir = output_root / "majestic"
+    snapshot_dir = source_dir / snapshot_date.isoformat()
+
+    try:
+        if simulate_missing:
+            raise RuntimeError("Simulated missing source: majestic")
+
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        raw_csv_path = snapshot_dir / "majestic_million.csv"
+        download_file_with_retries(
+            MAJESTIC_MILLION_URL,
+            raw_csv_path,
+            max_attempts=max_attempts,
+            backoff_seconds=retry_backoff_seconds,
+        )
+
+        normalized_csv_path = snapshot_dir / "majestic_domains.csv"
+        row_count, valid_row_count, duplicate_count = normalize_majestic_csv(raw_csv_path, normalized_csv_path)
+        result = SourceResult(
+            source="majestic",
+            status="fresh",
+            snapshot_date=snapshot_date.isoformat(),
+            downloaded_at=now.isoformat(),
+            list_id=None,
+            file_hash=sha256_file(raw_csv_path),
+            row_count=row_count,
+            valid_row_count=valid_row_count,
+            duplicate_registered_domains=duplicate_count,
+            raw_file_path=str(raw_csv_path),
+            normalized_csv_path=str(normalized_csv_path),
+            error=None,
+        )
+        write_meta(snapshot_dir, result)
+        return result
+    except Exception as error:
+        if allow_local_stale_cache:
+            fallback_dir = latest_valid_snapshot(source_dir, now)
+            if fallback_dir is not None:
+                result = stale_result(fallback_dir, snapshot_date, error, now)
+                write_meta(snapshot_dir, result)
+                return result
+
+        result = missing_source_result("majestic", snapshot_date, error, now)
+        write_meta(snapshot_dir, result)
+        return result
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     source_group = parser.add_mutually_exclusive_group(required=True)
-    source_group.add_argument("--source", choices=["tranco"], help="Download a single source")
+    source_group.add_argument("--source", choices=["tranco", "majestic"], help="Download a single source")
     source_group.add_argument("--all", action="store_true", help="Download all implemented sources")
     parser.add_argument("--date", type=date.fromisoformat, default=date.today(), help="Snapshot date, YYYY-MM-DD")
     parser.add_argument("--output-dir", type=Path, default=Path("data/raw"), help="Raw data output directory")
@@ -309,7 +431,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--simulate-missing",
-        choices=["tranco"],
+        choices=["tranco", "majestic"],
         action="append",
         default=[],
         help="Simulate a source failure for resilience testing",
@@ -324,20 +446,32 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    sources = ["tranco"] if args.all else [args.source]
+    sources = ["tranco", "majestic"] if args.all else [args.source]
 
-    results = [
-        download_tranco(
-            output_root=args.output_dir,
-            snapshot_date=args.date,
-            simulate_missing="tranco" in args.simulate_missing,
-            allow_local_stale_cache=args.allow_local_stale_cache,
-            max_attempts=args.max_attempts,
-            retry_backoff_seconds=args.retry_backoff_seconds,
-        )
-        for source in sources
-        if source == "tranco"
-    ]
+    results = []
+    for source in sources:
+        if source == "tranco":
+            results.append(
+                download_tranco(
+                    output_root=args.output_dir,
+                    snapshot_date=args.date,
+                    simulate_missing="tranco" in args.simulate_missing,
+                    allow_local_stale_cache=args.allow_local_stale_cache,
+                    max_attempts=args.max_attempts,
+                    retry_backoff_seconds=args.retry_backoff_seconds,
+                )
+            )
+        elif source == "majestic":
+            results.append(
+                download_majestic(
+                    output_root=args.output_dir,
+                    snapshot_date=args.date,
+                    simulate_missing="majestic" in args.simulate_missing,
+                    allow_local_stale_cache=args.allow_local_stale_cache,
+                    max_attempts=args.max_attempts,
+                    retry_backoff_seconds=args.retry_backoff_seconds,
+                )
+            )
 
     for result in results:
         print(json.dumps(asdict(result), sort_keys=True))

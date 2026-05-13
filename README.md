@@ -7,8 +7,8 @@
 [![dbt](https://img.shields.io/badge/dbt-1.8+-orange.svg)](https://www.getdbt.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Status**: first end-to-end source slice implemented. Tranco ingestion,
-BigQuery raw loading, the first dbt models, and score-direction tests are in
+**Status**: first multi-source slice in progress. Tranco and Majestic Million
+ingestion, BigQuery raw loading, dbt models, and score-direction tests are in
 place; additional sources and release automation are being built incrementally.
 
 ## Overview
@@ -32,9 +32,9 @@ lineage, CI checks, and a public derived CSV planned as the project matures.
 
 ## Current Scope
 
-The current working slice focuses on Tranco as the first source:
+The current working slice includes Tranco and Majestic Million:
 
-- download and normalize Tranco domains
+- download and normalize Tranco and Majestic domains
 - load normalized raw data into BigQuery
 - track source update status in `meta.source_update_log`
 - build the first staging, intermediate, and mart dbt models
@@ -59,14 +59,15 @@ dbt deps
 dbt debug
 ```
 
-## Tranco walking skeleton
+## Ranking-source walking skeleton
 
-After configuring local BigQuery credentials, the first source can be run end to
-end:
+After configuring local BigQuery credentials, implemented ranking sources can be
+run end to end:
 
 ```bash
 # From the repository root
 python scripts/download_sources.py --source tranco --date YYYY-MM-DD --output-dir data/raw
+python scripts/download_sources.py --source majestic --date YYYY-MM-DD --output-dir data/raw
 
 python scripts/load_to_bigquery.py \
   --source tranco \
@@ -75,9 +76,16 @@ python scripts/load_to_bigquery.py \
   --project YOUR_GCP_PROJECT_ID \
   --location US
 
+python scripts/load_to_bigquery.py \
+  --source majestic \
+  --date YYYY-MM-DD \
+  --input-dir data/raw \
+  --project YOUR_GCP_PROJECT_ID \
+  --location US
+
 cd dbt
-dbt run --select stg_tranco__domains int_domains_tranco mart_domain_consensus_score
-dbt test --select stg_tranco__domains mart_domain_consensus_score score_direction
+dbt run --select stg_tranco__domains stg_majestic__domains mart_domain_consensus_score
+dbt test --select stg_tranco__domains stg_majestic__domains mart_domain_consensus_score score_direction
 ```
 
 Raw source files under `data/raw/` are local-only and ignored by git. Production

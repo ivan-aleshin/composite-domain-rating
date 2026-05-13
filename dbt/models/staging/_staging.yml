@@ -21,3 +21,28 @@ models:
         description: Raw ingestion timestamp.
         data_tests:
           - not_null
+
+  - name: stg_majestic__domains
+    description: Cleaned Majestic Million domains at one row per registered domain.
+    columns:
+      - name: registered_domain
+        description: Registered domain normalized to ASCII / punycode.
+        data_tests:
+          - unique
+          - not_null
+      - name: ref_subnets
+        description: Best Majestic RefSubNets signal for the registered domain.
+        data_tests:
+          - not_null
+      - name: subdomains_seen
+        description: Count of raw Majestic domain values collapsed into the registered domain.
+        data_tests:
+          - not_null
+      - name: snapshot_date
+        description: Source snapshot date.
+        data_tests:
+          - not_null
+      - name: ingested_at
+        description: Raw ingestion timestamp.
+        data_tests:
+          - not_null

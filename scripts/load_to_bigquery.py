@@ -18,6 +18,8 @@ from google.cloud.exceptions import NotFound
 SOURCE_UPDATE_LOG_TABLE = "source_update_log"
 TRANCO_RAW_TABLE = "tranco_domains"
 TRANCO_STAGING_TABLE = "tranco_domains__staging"
+MAJESTIC_RAW_TABLE = "majestic_domains"
+MAJESTIC_STAGING_TABLE = "majestic_domains__staging"
 DEFAULT_MAXIMUM_BYTES_BILLED = 21_474_836_480
 
 STALE_TTL_DAYS = {
@@ -109,6 +111,51 @@ def ensure_empty_tranco_table(
     client.query(query, job_config=query_config(maximum_bytes_billed)).result()
 
 
+def ensure_empty_majestic_table(
+    client: bigquery.Client,
+    project: str,
+    raw_dataset: str,
+    maximum_bytes_billed: int,
+) -> None:
+    query = f"""
+    CREATE OR REPLACE TABLE {quoted_table(project, raw_dataset, MAJESTIC_RAW_TABLE)}
+    PARTITION BY snapshot_date
+    CLUSTER BY registered_domain AS
+    SELECT
+        CAST(NULL AS STRING) AS registered_domain,
+        CAST(NULL AS INT64) AS ref_subnets,
+        CAST(NULL AS INT64) AS subdomains_seen,
+        CAST(NULL AS DATE) AS snapshot_date,
+        CAST(NULL AS TIMESTAMP) AS ingested_at
+    FROM (SELECT 1)
+    WHERE FALSE
+    """
+    client.query(query, job_config=query_config(maximum_bytes_billed)).result()
+
+
+def raw_table_name(source: str) -> str:
+    if source == "tranco":
+        return TRANCO_RAW_TABLE
+    if source == "majestic":
+        return MAJESTIC_RAW_TABLE
+    raise ValueError(f"Unsupported source: {source}")
+
+
+def ensure_empty_raw_table(
+    client: bigquery.Client,
+    project: str,
+    raw_dataset: str,
+    source: str,
+    maximum_bytes_billed: int,
+) -> None:
+    if source == "tranco":
+        ensure_empty_tranco_table(client, project, raw_dataset, maximum_bytes_billed)
+    elif source == "majestic":
+        ensure_empty_majestic_table(client, project, raw_dataset, maximum_bytes_billed)
+    else:
+        raise ValueError(f"Unsupported source: {source}")
+
+
 def raw_table_exists(client: bigquery.Client, project: str, raw_dataset: str, table_name: str) -> bool:
     try:
         client.get_table(table_ref(project, raw_dataset, table_name))
@@ -127,6 +174,13 @@ def tranco_csv_path(input_root: Path, snapshot_date: date, metadata: dict[str, A
     if metadata_path:
         return Path(metadata_path)
     return input_root / "tranco" / snapshot_date.isoformat() / "tranco_domains.csv"
+
+
+def majestic_csv_path(input_root: Path, snapshot_date: date, metadata: dict[str, Any]) -> Path:
+    metadata_path = metadata.get("normalized_csv_path")
+    if metadata_path:
+        return Path(metadata_path)
+    return input_root / "majestic" / snapshot_date.isoformat() / "majestic_domains.csv"
 
 
 def insert_source_update(
@@ -236,6 +290,53 @@ def load_tranco_csv(
     return int(load_job.output_rows or 0)
 
 
+def load_majestic_csv(
+    client: bigquery.Client,
+    project: str,
+    raw_dataset: str,
+    csv_path: Path,
+    snapshot_date: date,
+    maximum_bytes_billed: int,
+) -> int:
+    staging_table = table_ref(project, raw_dataset, MAJESTIC_STAGING_TABLE)
+    load_config = bigquery.LoadJobConfig(
+        source_format=bigquery.SourceFormat.CSV,
+        skip_leading_rows=1,
+        schema=[
+            bigquery.SchemaField("registered_domain", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("ref_subnets", "INT64", mode="REQUIRED"),
+            bigquery.SchemaField("subdomains_seen", "INT64", mode="REQUIRED"),
+        ],
+        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+    )
+
+    with csv_path.open("rb") as file:
+        load_job = client.load_table_from_file(file, staging_table, job_config=load_config)
+    load_job.result()
+
+    query = f"""
+    CREATE OR REPLACE TABLE {quoted_table(project, raw_dataset, MAJESTIC_RAW_TABLE)}
+    PARTITION BY snapshot_date
+    CLUSTER BY registered_domain AS
+    SELECT
+        registered_domain,
+        ref_subnets,
+        subdomains_seen,
+        @snapshot_date AS snapshot_date,
+        CURRENT_TIMESTAMP() AS ingested_at
+    FROM {quoted_table(project, raw_dataset, MAJESTIC_STAGING_TABLE)}
+    """
+    job_config = query_config(
+        maximum_bytes_billed=maximum_bytes_billed,
+        query_parameters=[
+            bigquery.ScalarQueryParameter("snapshot_date", "DATE", snapshot_date),
+        ],
+    )
+    client.query(query, job_config=job_config).result()
+    client.delete_table(staging_table, not_found_ok=True)
+    return int(load_job.output_rows or 0)
+
+
 def handle_failed_fresh_source(
     client: bigquery.Client,
     project: str,
@@ -255,7 +356,8 @@ def handle_failed_fresh_source(
         source,
         maximum_bytes_billed,
     )
-    raw_exists = raw_table_exists(client, project, raw_dataset, TRANCO_RAW_TABLE)
+    target_raw_table = raw_table_name(source)
+    raw_exists = raw_table_exists(client, project, raw_dataset, target_raw_table)
     ttl_days = STALE_TTL_DAYS[source]
 
     if last_success is not None and raw_exists:
@@ -280,11 +382,11 @@ def handle_failed_fresh_source(
                 snapshot_date=snapshot_date.isoformat(),
                 row_count=int(row_count or 0),
                 age_days=age_days,
-                raw_table=table_ref(project, raw_dataset, TRANCO_RAW_TABLE),
+                raw_table=table_ref(project, raw_dataset, target_raw_table),
                 error=error_message,
             )
 
-    ensure_empty_tranco_table(client, project, raw_dataset, maximum_bytes_billed)
+    ensure_empty_raw_table(client, project, raw_dataset, source, maximum_bytes_billed)
     insert_source_update(
         client=client,
         project=project,
@@ -303,7 +405,7 @@ def handle_failed_fresh_source(
         snapshot_date=snapshot_date.isoformat(),
         row_count=0,
         age_days=None,
-        raw_table=table_ref(project, raw_dataset, TRANCO_RAW_TABLE),
+        raw_table=table_ref(project, raw_dataset, target_raw_table),
         error=error_message,
     )
 
@@ -381,9 +483,82 @@ def load_tranco(
     )
 
 
+def load_majestic(
+    client: bigquery.Client,
+    project: str,
+    raw_dataset: str,
+    meta_dataset: str,
+    input_root: Path,
+    snapshot_date: date,
+    maximum_bytes_billed: int,
+) -> LoadResult:
+    started_at = utc_now()
+    ensure_source_update_log(client, project, meta_dataset)
+    metadata = None
+
+    try:
+        metadata = read_local_meta(input_root, "majestic", snapshot_date)
+        if metadata.get("status") != "fresh":
+            raise RuntimeError(f"Local Majestic download status is {metadata.get('status')!r}, not 'fresh'")
+
+        csv_path = majestic_csv_path(input_root, snapshot_date, metadata)
+        if not csv_path.exists():
+            raise FileNotFoundError(f"Normalized Majestic CSV not found: {csv_path}")
+
+        row_count = load_majestic_csv(
+            client,
+            project,
+            raw_dataset,
+            csv_path,
+            snapshot_date,
+            maximum_bytes_billed,
+        )
+    except Exception as error:
+        if metadata is None:
+            try:
+                metadata = read_local_meta(input_root, "majestic", snapshot_date)
+            except (FileNotFoundError, json.JSONDecodeError):
+                pass
+
+        return handle_failed_fresh_source(
+            client=client,
+            project=project,
+            raw_dataset=raw_dataset,
+            meta_dataset=meta_dataset,
+            source="majestic",
+            snapshot_date=snapshot_date,
+            started_at=started_at,
+            source_metadata=metadata,
+            error_message=str(error),
+            maximum_bytes_billed=maximum_bytes_billed,
+        )
+
+    insert_source_update(
+        client=client,
+        project=project,
+        meta_dataset=meta_dataset,
+        source="majestic",
+        started_at=started_at,
+        status="success",
+        row_count=row_count,
+        age_days=0,
+        source_metadata=metadata,
+        error_message=None,
+    )
+    return LoadResult(
+        source="majestic",
+        status="fresh",
+        snapshot_date=snapshot_date.isoformat(),
+        row_count=row_count,
+        age_days=0,
+        raw_table=table_ref(project, raw_dataset, MAJESTIC_RAW_TABLE),
+        error=None,
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", choices=["tranco"], required=True, help="Load a single source")
+    parser.add_argument("--source", choices=["tranco", "majestic"], required=True, help="Load a single source")
     parser.add_argument("--date", type=date.fromisoformat, default=date.today(), help="Snapshot date, YYYY-MM-DD")
     parser.add_argument("--input-dir", type=Path, default=Path("data/raw"), help="Raw data input directory")
     parser.add_argument("--project", help="GCP project id; defaults to application default credentials project")
@@ -409,6 +584,19 @@ def main() -> int:
 
     if args.source == "tranco":
         result = load_tranco(
+            client=client,
+            project=project,
+            raw_dataset=args.raw_dataset,
+            meta_dataset=args.meta_dataset,
+            input_root=args.input_dir,
+            snapshot_date=args.date,
+            maximum_bytes_billed=args.maximum_bytes_billed,
+        )
+        print(json.dumps(asdict(result), sort_keys=True))
+        return 0
+
+    if args.source == "majestic":
+        result = load_majestic(
             client=client,
             project=project,
             raw_dataset=args.raw_dataset,
