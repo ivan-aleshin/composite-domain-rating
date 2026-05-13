@@ -32,3 +32,30 @@ sources:
             description: Timestamp when the raw table was created or refreshed.
             data_tests:
               - not_null
+      - name: majestic_domains
+        description: Majestic Million domains, normalized to registered domains.
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: { count: 8, period: day }
+          error_after: { count: 14, period: day }
+        columns:
+          - name: registered_domain
+            description: Registered domain normalized to ASCII / punycode.
+            data_tests:
+              - not_null
+          - name: ref_subnets
+            description: Best RefSubNets value observed for the registered domain.
+            data_tests:
+              - not_null
+          - name: subdomains_seen
+            description: Count of raw Majestic domain values collapsed into the registered domain.
+            data_tests:
+              - not_null
+          - name: snapshot_date
+            description: Source snapshot date loaded by the ingestion script.
+            data_tests:
+              - not_null
+          - name: ingested_at
+            description: Timestamp when the raw table was created or refreshed.
+            data_tests:
+              - not_null
