@@ -6,6 +6,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -24,14 +25,18 @@ from domain_utils import normalize_registered_domain
 TRANCO_API_DATE_URL = "https://tranco-list.eu/api/lists/date/{snapshot_date}"
 TRANCO_TOP_1M_URL = "https://tranco-list.eu/top-1m.csv.zip"
 MAJESTIC_MILLION_URL = "https://downloads.majestic.com/majestic_million.csv"
+CLOUDFLARE_RADAR_DATASET_URL = "https://api.cloudflare.com/client/v4/radar/datasets/ranking_top_{bucket}"
+CLOUDFLARE_RADAR_BUCKETS = (200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000)
 LOCAL_CACHE_STALE_MAX_AGE_DAYS = 14
 REQUEST_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
-IMPLEMENTED_SOURCES = ("tranco", "majestic")
+RETRIABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
+IMPLEMENTED_SOURCES = ("tranco", "majestic", "cloudflare")
 NORMALIZED_CSV_NAMES = {
     "tranco": "tranco_domains.csv",
     "majestic": "majestic_domains.csv",
+    "cloudflare": "cloudflare_domains.csv",
 }
 
 
@@ -97,6 +102,58 @@ def download_file(url: str, destination: Path) -> None:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
                 if chunk:
                     file.write(chunk)
+
+
+def retry_delay_seconds(
+    response: requests.Response | None,
+    attempt: int,
+    backoff_seconds: float,
+) -> float:
+    if response is not None:
+        retry_after = response.headers.get("Retry-After")
+        if retry_after is not None:
+            try:
+                return max(float(retry_after), 0.0)
+            except ValueError:
+                pass
+    return backoff_seconds * (2 ** (attempt - 1))
+
+
+def should_retry_http_error(error: requests.HTTPError) -> bool:
+    response = error.response
+    if response is None:
+        return True
+    return response.status_code in RETRIABLE_HTTP_STATUS_CODES
+
+
+def download_text_with_retries(
+    url: str,
+    max_attempts: int,
+    backoff_seconds: float,
+    headers: dict[str, str] | None = None,
+) -> str:
+    last_error: requests.RequestException | None = None
+
+    for attempt in range(1, max_attempts + 1):
+        response: requests.Response | None = None
+        try:
+            response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            return response.text
+        except requests.HTTPError as error:
+            last_error = error
+            if not should_retry_http_error(error) or attempt == max_attempts:
+                break
+            time.sleep(retry_delay_seconds(response, attempt, backoff_seconds))
+        except requests.RequestException as error:
+            last_error = error
+            if attempt == max_attempts:
+                break
+            time.sleep(retry_delay_seconds(response, attempt, backoff_seconds))
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"Failed to download {url}")
 
 
 def download_file_with_retries(
@@ -221,6 +278,47 @@ def normalize_majestic_csv(raw_csv_path: Path, normalized_csv_path: Path) -> tup
             )
 
     return row_count, len(best_ref_subnets_by_domain), duplicate_count
+
+
+def normalize_cloudflare_radar_csv(raw_csv_path: Path, normalized_csv_path: Path) -> tuple[int, int, int]:
+    row_count = 0
+    duplicate_count = 0
+    best_bucket_by_domain: dict[str, int] = {}
+    buckets_by_domain: dict[str, set[int]] = {}
+
+    with raw_csv_path.open("r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            raw_domain = row.get("domain")
+            rank_bucket = _int_or_none(row.get("rank_bucket"))
+            if raw_domain is None or rank_bucket is None:
+                continue
+
+            row_count += 1
+            registered_domain = normalize_registered_domain(raw_domain)
+            if registered_domain is None:
+                continue
+
+            buckets_by_domain.setdefault(registered_domain, set()).add(rank_bucket)
+            previous_bucket = best_bucket_by_domain.get(registered_domain)
+            if previous_bucket is None or rank_bucket < previous_bucket:
+                if previous_bucket is not None:
+                    duplicate_count += 1
+                best_bucket_by_domain[registered_domain] = rank_bucket
+            else:
+                duplicate_count += 1
+
+    normalized_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with normalized_csv_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["registered_domain", "rank_bucket", "buckets_seen"])
+        for registered_domain, rank_bucket in sorted(
+            best_bucket_by_domain.items(),
+            key=lambda item: (item[1], item[0]),
+        ):
+            writer.writerow([registered_domain, rank_bucket, len(buckets_by_domain[registered_domain])])
+
+    return row_count, len(best_bucket_by_domain), duplicate_count
 
 
 def latest_valid_snapshot(source_dir: Path, now: datetime) -> Path | None:
@@ -402,9 +500,84 @@ def download_majestic(
         return result
 
 
+def download_cloudflare(
+    output_root: Path,
+    snapshot_date: date,
+    simulate_missing: bool = False,
+    allow_local_stale_cache: bool = False,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+) -> SourceResult:
+    now = utc_now()
+    source_dir = output_root / "cloudflare"
+    snapshot_dir = source_dir / snapshot_date.isoformat()
+
+    try:
+        if simulate_missing:
+            raise RuntimeError("Simulated missing source: cloudflare")
+
+        api_token = os.environ.get("CLOUDFLARE_API_TOKEN")
+        if not api_token:
+            raise RuntimeError("CLOUDFLARE_API_TOKEN is required for Cloudflare Radar downloads")
+
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        raw_csv_path = snapshot_dir / "cloudflare_radar_buckets.csv"
+        headers = {"Authorization": f"Bearer {api_token}"}
+        row_count = 0
+
+        with raw_csv_path.open("w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["domain", "rank_bucket"])
+            for bucket in CLOUDFLARE_RADAR_BUCKETS:
+                url = CLOUDFLARE_RADAR_DATASET_URL.format(bucket=bucket)
+                payload = download_text_with_retries(
+                    url,
+                    max_attempts=max_attempts,
+                    backoff_seconds=retry_backoff_seconds,
+                    headers=headers,
+                )
+                reader = csv.DictReader(payload.splitlines())
+                for row in reader:
+                    domain = row.get("domain")
+                    if domain:
+                        writer.writerow([domain, bucket])
+                        row_count += 1
+
+        normalized_csv_path = snapshot_dir / "cloudflare_domains.csv"
+        _, valid_row_count, duplicate_count = normalize_cloudflare_radar_csv(raw_csv_path, normalized_csv_path)
+        result = SourceResult(
+            source="cloudflare",
+            status="fresh",
+            snapshot_date=snapshot_date.isoformat(),
+            downloaded_at=now.isoformat(),
+            list_id=None,
+            file_hash=sha256_file(raw_csv_path),
+            row_count=row_count,
+            valid_row_count=valid_row_count,
+            duplicate_registered_domains=duplicate_count,
+            raw_file_path=str(raw_csv_path),
+            normalized_csv_path=str(normalized_csv_path),
+            error=None,
+        )
+        write_meta(snapshot_dir, result)
+        return result
+    except Exception as error:
+        if allow_local_stale_cache:
+            fallback_dir = latest_valid_snapshot(source_dir, now)
+            if fallback_dir is not None:
+                result = stale_result(fallback_dir, snapshot_date, error, now)
+                write_meta(snapshot_dir, result)
+                return result
+
+        result = missing_source_result("cloudflare", snapshot_date, error, now)
+        write_meta(snapshot_dir, result)
+        return result
+
+
 DOWNLOADERS = {
     "tranco": download_tranco,
     "majestic": download_majestic,
+    "cloudflare": download_cloudflare,
 }
 
 

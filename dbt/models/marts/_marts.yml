@@ -17,10 +17,16 @@ models:
         description: Tranco percentile score, where higher is better.
       - name: p_majestic
         description: Majestic RefSubNets percentile score, where higher is better.
+      - name: p_radar
+        description: Cloudflare Radar bucket percentile score, where higher is better.
       - name: majestic_ref_subnets
         description: Best Majestic RefSubNets value observed for the registered domain.
       - name: majestic_subdomains_seen
         description: Count of Majestic raw domain values collapsed into the registered domain.
+      - name: radar_rank_bucket
+        description: Smallest Cloudflare Radar ranking bucket containing the domain.
+      - name: radar_buckets_seen
+        description: Count of Cloudflare Radar buckets containing the registered domain.
       - name: coverage_tier
         description: Coverage tier for available ranking sources.
         data_tests:

@@ -25,12 +25,25 @@ majestic AS (
     FROM {{ ref('int_domains_majestic') }}
 ),
 
+radar AS (
+    SELECT
+        registered_domain,
+        rank_bucket AS radar_rank_bucket,
+        buckets_seen AS radar_buckets_seen,
+        p_radar,
+        snapshot_date
+    FROM {{ ref('int_domains_radar') }}
+),
+
 domains AS (
     SELECT registered_domain
     FROM tranco
     UNION DISTINCT
     SELECT registered_domain
     FROM majestic
+    UNION DISTINCT
+    SELECT registered_domain
+    FROM radar
 ),
 
 enriched AS (
@@ -41,14 +54,20 @@ enriched AS (
         majestic.majestic_ref_subnets,
         majestic.majestic_subdomains_seen,
         majestic.p_majestic,
-        COALESCE(tranco.snapshot_date, majestic.snapshot_date) AS snapshot_date,
+        radar.radar_rank_bucket,
+        radar.radar_buckets_seen,
+        radar.p_radar,
+        COALESCE(tranco.snapshot_date, majestic.snapshot_date, radar.snapshot_date) AS snapshot_date,
         IF(tranco.p_tranco IS NOT NULL, 1, 0)
-        + IF(majestic.p_majestic IS NOT NULL, 1, 0) AS sources_count
+        + IF(majestic.p_majestic IS NOT NULL, 1, 0)
+        + IF(radar.p_radar IS NOT NULL, 1, 0) AS sources_count
     FROM domains
     LEFT JOIN tranco
         ON domains.registered_domain = tranco.registered_domain
     LEFT JOIN majestic
         ON domains.registered_domain = majestic.registered_domain
+    LEFT JOIN radar
+        ON domains.registered_domain = radar.registered_domain
 )
 
 SELECT
@@ -58,16 +77,21 @@ SELECT
     majestic_ref_subnets,
     majestic_subdomains_seen,
     p_majestic,
+    radar_rank_bucket,
+    radar_buckets_seen,
+    p_radar,
     (
         COALESCE(p_tranco, 0)
         + COALESCE(p_majestic, 0)
+        + COALESCE(p_radar, 0)
     ) / sources_count * 100 AS consensus_score,
     'sparse' AS coverage_tier,
     sources_count,
     ARRAY_TO_STRING(
         ARRAY_CONCAT(
             IF(p_tranco IS NOT NULL, ['tranco'], []),
-            IF(p_majestic IS NOT NULL, ['majestic'], [])
+            IF(p_majestic IS NOT NULL, ['majestic'], []),
+            IF(p_radar IS NOT NULL, ['radar'], [])
         ),
         ','
     ) AS ranking_sources_present,

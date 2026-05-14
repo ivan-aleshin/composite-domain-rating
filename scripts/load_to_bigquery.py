@@ -21,7 +21,7 @@ DEFAULT_MAXIMUM_BYTES_BILLED = 21_474_836_480
 STALE_TTL_DAYS = {
     "tranco": 14,
     "majestic": 14,
-    "radar": 14,
+    "cloudflare": 14,
     "opr": 90,
     "crux": 45,
     "urlhaus": 7,
@@ -70,6 +70,17 @@ SOURCE_LOAD_CONFIGS = {
             bigquery.SchemaField("registered_domain", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("ref_subnets", "INT64", mode="REQUIRED"),
             bigquery.SchemaField("subdomains_seen", "INT64", mode="REQUIRED"),
+        ),
+    ),
+    "cloudflare": SourceLoadConfig(
+        source="cloudflare",
+        raw_table="cloudflare_domains",
+        staging_table="cloudflare_domains__staging",
+        normalized_csv_name="cloudflare_domains.csv",
+        load_schema=(
+            bigquery.SchemaField("registered_domain", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("rank_bucket", "INT64", mode="REQUIRED"),
+            bigquery.SchemaField("buckets_seen", "INT64", mode="REQUIRED"),
         ),
     ),
 }
