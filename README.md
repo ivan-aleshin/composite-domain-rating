@@ -23,6 +23,13 @@ normalizes each source into percentile ranks, combines available signals with
 equal weighting, and keeps source coverage explicit so sparse data is not
 presented as false certainty.
 
+For the current three-source beta slice, a domain receives a `consensus_score`
+only when it is present in all three implemented ranking sources. Domains with
+fewer signals remain in the mart for coverage analysis, but their score is
+`NULL` and their `coverage_tier` is `sparse`. Scored beta rows currently use
+`coverage_tier = partial`, matching the v1.0 tier taxonomy where `full` is
+reserved for five-source coverage.
+
 The implementation uses dbt Core on BigQuery, with ingestion scripts, source
 lineage, CI checks, and a public derived CSV planned as the project matures.
 
@@ -40,7 +47,7 @@ Radar:
 - load normalized raw data into BigQuery
 - track source update status in `meta.source_update_log`
 - build the first staging, intermediate, and mart dbt models
-- validate score direction and basic data quality
+- validate source direction, coverage semantics, score range, and basic data quality
 - publish only derived output, not raw third-party rankings
 
 ## Getting started
