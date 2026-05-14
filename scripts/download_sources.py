@@ -28,6 +28,11 @@ LOCAL_CACHE_STALE_MAX_AGE_DAYS = 14
 REQUEST_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
+IMPLEMENTED_SOURCES = ("tranco", "majestic")
+NORMALIZED_CSV_NAMES = {
+    "tranco": "tranco_domains.csv",
+    "majestic": "majestic_domains.csv",
+}
 
 
 @dataclass(frozen=True)
@@ -235,11 +240,7 @@ def latest_valid_snapshot(source_dir: Path, now: datetime) -> Path | None:
             continue
         if now - downloaded_at > timedelta(days=LOCAL_CACHE_STALE_MAX_AGE_DAYS):
             continue
-        source = payload.get("source")
-        normalized_file_name = {
-            "tranco": "tranco_domains.csv",
-            "majestic": "majestic_domains.csv",
-        }.get(source)
+        normalized_file_name = NORMALIZED_CSV_NAMES.get(str(payload.get("source")))
         if normalized_file_name is None or not (meta_path.parent / normalized_file_name).exists():
             continue
         candidates.append((downloaded_at, meta_path.parent))
@@ -265,10 +266,6 @@ def stale_result(snapshot_dir: Path, requested_date: date, error: Exception, now
         normalized_csv_path=meta.get("normalized_csv_path"),
         error=str(error),
     )
-
-
-def missing_result(requested_date: date, error: Exception, now: datetime) -> SourceResult:
-    return missing_source_result("tranco", requested_date, error, now)
 
 
 def missing_source_result(source: str, requested_date: date, error: Exception, now: datetime) -> SourceResult:
@@ -344,7 +341,7 @@ def download_tranco(
                 write_meta(snapshot_dir, result)
                 return result
 
-        result = missing_result(snapshot_date, error, now)
+        result = missing_source_result("tranco", snapshot_date, error, now)
         write_meta(snapshot_dir, result)
         return result
 
@@ -405,10 +402,16 @@ def download_majestic(
         return result
 
 
+DOWNLOADERS = {
+    "tranco": download_tranco,
+    "majestic": download_majestic,
+}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     source_group = parser.add_mutually_exclusive_group(required=True)
-    source_group.add_argument("--source", choices=["tranco", "majestic"], help="Download a single source")
+    source_group.add_argument("--source", choices=IMPLEMENTED_SOURCES, help="Download a single source")
     source_group.add_argument("--all", action="store_true", help="Download all implemented sources")
     parser.add_argument("--date", type=date.fromisoformat, default=date.today(), help="Snapshot date, YYYY-MM-DD")
     parser.add_argument("--output-dir", type=Path, default=Path("data/raw"), help="Raw data output directory")
@@ -431,7 +434,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--simulate-missing",
-        choices=["tranco", "majestic"],
+        choices=IMPLEMENTED_SOURCES,
         action="append",
         default=[],
         help="Simulate a source failure for resilience testing",
@@ -446,31 +449,19 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    sources = ["tranco", "majestic"] if args.all else [args.source]
+    sources = list(IMPLEMENTED_SOURCES) if args.all else [args.source]
 
     results = []
     for source in sources:
-        if source == "tranco":
-            results.append(
-                download_tranco(
-                    output_root=args.output_dir,
-                    snapshot_date=args.date,
-                    simulate_missing="tranco" in args.simulate_missing,
-                    allow_local_stale_cache=args.allow_local_stale_cache,
-                    max_attempts=args.max_attempts,
-                    retry_backoff_seconds=args.retry_backoff_seconds,
-                )
+        results.append(
+            DOWNLOADERS[source](
+                output_root=args.output_dir,
+                snapshot_date=args.date,
+                simulate_missing=source in args.simulate_missing,
+                allow_local_stale_cache=args.allow_local_stale_cache,
+                max_attempts=args.max_attempts,
+                retry_backoff_seconds=args.retry_backoff_seconds,
             )
-        elif source == "majestic":
-            results.append(
-                download_majestic(
-                    output_root=args.output_dir,
-                    snapshot_date=args.date,
-                    simulate_missing="majestic" in args.simulate_missing,
-                    allow_local_stale_cache=args.allow_local_stale_cache,
-                    max_attempts=args.max_attempts,
-                    retry_backoff_seconds=args.retry_backoff_seconds,
-                )
             )
 
     for result in results:
