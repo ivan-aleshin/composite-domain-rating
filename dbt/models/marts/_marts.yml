@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: mart_domain_consensus_score
-    description: Domain consensus score mart. Initially populated from Tranco only.
+    description: Domain consensus score mart combining implemented ranking sources.
     columns:
       - name: registered_domain
         description: Registered domain normalized to ASCII / punycode.
@@ -10,9 +10,7 @@ models:
           - unique
           - not_null
       - name: consensus_score
-        description: Consensus score on a 0-100 scale. Temporarily averaged across available walking-skeleton sources.
-        data_tests:
-          - not_null
+        description: Consensus score on a 0-100 scale. NULL when coverage is below the configured consensus threshold.
       - name: p_tranco
         description: Tranco percentile score, where higher is better.
       - name: p_majestic
@@ -28,7 +26,7 @@ models:
       - name: radar_buckets_seen
         description: Count of Cloudflare Radar buckets containing the registered domain.
       - name: coverage_tier
-        description: Coverage tier for available ranking sources.
+        description: Coverage tier for implemented ranking sources. Sparse rows keep raw signals but do not receive a consensus score.
         data_tests:
           - not_null
           - accepted_values:

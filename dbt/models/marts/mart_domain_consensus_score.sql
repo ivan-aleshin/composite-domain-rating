@@ -68,6 +68,26 @@ enriched AS (
         ON domains.registered_domain = majestic.registered_domain
     LEFT JOIN radar
         ON domains.registered_domain = radar.registered_domain
+),
+
+scored AS (
+    SELECT
+        *,
+        CASE
+            WHEN sources_count >= {{ var('min_sources_for_score', 3) }}
+                THEN (
+                    COALESCE(p_tranco, 0)
+                    + COALESCE(p_majestic, 0)
+                    + COALESCE(p_radar, 0)
+                ) / sources_count * 100
+        END AS consensus_score,
+        CASE
+            WHEN sources_count >= 5 THEN 'full'
+            WHEN sources_count = 4 THEN 'high'
+            WHEN sources_count = 3 THEN 'partial'
+            ELSE 'sparse'
+        END AS coverage_tier
+    FROM enriched
 )
 
 SELECT
@@ -80,12 +100,8 @@ SELECT
     radar_rank_bucket,
     radar_buckets_seen,
     p_radar,
-    (
-        COALESCE(p_tranco, 0)
-        + COALESCE(p_majestic, 0)
-        + COALESCE(p_radar, 0)
-    ) / sources_count * 100 AS consensus_score,
-    'sparse' AS coverage_tier,
+    consensus_score,
+    coverage_tier,
     sources_count,
     ARRAY_TO_STRING(
         ARRAY_CONCAT(
@@ -103,4 +119,4 @@ SELECT
     CAST(NULL AS DATE) AS last_threat_seen,
     snapshot_date,
     '{{ var("methodology_version", "v1.0.0") }}' AS methodology_version
-FROM enriched
+FROM scored

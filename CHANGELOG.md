@@ -14,3 +14,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Majestic Million downloader, BigQuery raw loader, staging/intermediate models, and mart integration.
 - Source registry refactor for ingestion/load scripts and a mart `sources_count` invariant test.
 - Cloudflare Radar bucket downloader, BigQuery raw loader config, staging/intermediate models, and mart integration.
+- Beta scoring semantics requiring the configured minimum source coverage before emitting `consensus_score`.
+- Mart validation tests for score range, coverage consistency, source population, and percentile population.
