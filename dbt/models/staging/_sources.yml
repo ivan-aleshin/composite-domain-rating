@@ -59,3 +59,30 @@ sources:
             description: Timestamp when the raw table was created or refreshed.
             data_tests:
               - not_null
+      - name: cloudflare_domains
+        description: Cloudflare Radar ranking bucket domains, normalized to registered domains.
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: { count: 8, period: day }
+          error_after: { count: 14, period: day }
+        columns:
+          - name: registered_domain
+            description: Registered domain normalized to ASCII / punycode.
+            data_tests:
+              - not_null
+          - name: rank_bucket
+            description: Smallest Cloudflare Radar ranking bucket containing the domain.
+            data_tests:
+              - not_null
+          - name: buckets_seen
+            description: Count of Cloudflare Radar buckets containing the registered domain.
+            data_tests:
+              - not_null
+          - name: snapshot_date
+            description: Source snapshot date loaded by the ingestion script.
+            data_tests:
+              - not_null
+          - name: ingested_at
+            description: Timestamp when the raw table was created or refreshed.
+            data_tests:
+              - not_null

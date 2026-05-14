@@ -46,3 +46,28 @@ models:
         description: Raw ingestion timestamp.
         data_tests:
           - not_null
+
+  - name: stg_cloudflare__domains
+    description: Cleaned Cloudflare Radar ranking bucket domains at one row per registered domain.
+    columns:
+      - name: registered_domain
+        description: Registered domain normalized to ASCII / punycode.
+        data_tests:
+          - unique
+          - not_null
+      - name: rank_bucket
+        description: Smallest Cloudflare Radar ranking bucket containing the domain.
+        data_tests:
+          - not_null
+      - name: buckets_seen
+        description: Count of Cloudflare Radar buckets containing the registered domain.
+        data_tests:
+          - not_null
+      - name: snapshot_date
+        description: Source snapshot date.
+        data_tests:
+          - not_null
+      - name: ingested_at
+        description: Raw ingestion timestamp.
+        data_tests:
+          - not_null

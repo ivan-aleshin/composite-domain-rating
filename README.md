@@ -7,9 +7,10 @@
 [![dbt](https://img.shields.io/badge/dbt-1.8+-orange.svg)](https://www.getdbt.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Status**: first multi-source slice in progress. Tranco and Majestic Million
-ingestion, BigQuery raw loading, dbt models, and score-direction tests are in
-place; additional sources and release automation are being built incrementally.
+**Status**: first multi-source slice in progress. Tranco, Majestic Million, and
+Cloudflare Radar ingestion paths, BigQuery raw loading, dbt models, and
+score-direction tests are in place; release automation is being built
+incrementally.
 
 ## Overview
 
@@ -32,9 +33,10 @@ lineage, CI checks, and a public derived CSV planned as the project matures.
 
 ## Current Scope
 
-The current working slice includes Tranco and Majestic Million:
+The current working slice includes Tranco, Majestic Million, and Cloudflare
+Radar:
 
-- download and normalize Tranco and Majestic domains
+- download and normalize Tranco, Majestic, and Cloudflare Radar domains
 - load normalized raw data into BigQuery
 - track source update status in `meta.source_update_log`
 - build the first staging, intermediate, and mart dbt models
@@ -68,6 +70,8 @@ run end to end:
 # From the repository root
 python scripts/download_sources.py --source tranco --date YYYY-MM-DD --output-dir data/raw
 python scripts/download_sources.py --source majestic --date YYYY-MM-DD --output-dir data/raw
+export CLOUDFLARE_API_TOKEN=...  # or load it from your local .env
+python scripts/download_sources.py --source cloudflare --date YYYY-MM-DD --output-dir data/raw
 
 python scripts/load_to_bigquery.py \
   --source tranco \
@@ -83,14 +87,24 @@ python scripts/load_to_bigquery.py \
   --project YOUR_GCP_PROJECT_ID \
   --location US
 
+python scripts/load_to_bigquery.py \
+  --source cloudflare \
+  --date YYYY-MM-DD \
+  --input-dir data/raw \
+  --project YOUR_GCP_PROJECT_ID \
+  --location US
+
 cd dbt
-dbt run --select stg_tranco__domains stg_majestic__domains mart_domain_consensus_score
-dbt test --select stg_tranco__domains stg_majestic__domains mart_domain_consensus_score score_direction
+dbt run --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains mart_domain_consensus_score
+dbt test --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains mart_domain_consensus_score score_direction
 ```
 
 Raw source files under `data/raw/` are local-only and ignored by git. Production
 fallback for stale sources is based on private BigQuery raw tables and
 `meta.source_update_log`, not local cache files.
+
+Cloudflare Radar is modeled as ranking buckets rather than exact ranks. The
+pipeline uses the smallest bucket containing a domain as the source signal.
 
 ## Disclaimer
 
