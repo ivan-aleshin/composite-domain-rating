@@ -137,6 +137,15 @@ from `meta.source_update_log`, methodology version, row count, and the planned
 data release tag (`data-YYYY-WNN`). Local archive files under `data/archive/`
 are ignored by git.
 
+The same export path is used by the weekly GitHub Actions refresh workflow,
+which can also be run manually from the Actions tab. Scheduled data releases
+are created as GitHub prereleases so they do not replace code releases.
+
+The workflow expects these repository secrets:
+
+- `GCP_SA_KEY` — service account JSON for BigQuery jobs
+- `CLOUDFLARE_API_TOKEN` — Cloudflare Radar API token
+
 ## Disclaimer
 
 Open-source project released under the MIT License. Commercial use is welcome,
