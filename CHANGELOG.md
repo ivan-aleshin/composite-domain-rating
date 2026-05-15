@@ -16,3 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cloudflare Radar bucket downloader, BigQuery raw loader config, staging/intermediate models, and mart integration.
 - Beta scoring semantics requiring the configured minimum source coverage before emitting `consensus_score`.
 - Mart validation tests for score range, coverage consistency, source population, and percentile population.
+- Run-level mart `snapshot_date` semantics for coherent weekly archive snapshots.
+- Release archive exporter for derived CSV and lineage JSON artifacts.
+- Mart validation test requiring a single archive snapshot date per build.

@@ -113,6 +113,30 @@ fallback for stale sources is based on private BigQuery raw tables and
 Cloudflare Radar is modeled as ranking buckets rather than exact ranks. The
 pipeline uses the smallest bucket containing a domain as the source signal.
 
+## Derived archive export
+
+After a successful dbt run, the public mart can be exported as release-ready
+artifacts:
+
+```bash
+python scripts/archive_to_release.py \
+  --project YOUR_GCP_PROJECT_ID \
+  --marts-dataset marts \
+  --meta-dataset meta \
+  --output-dir data/archive
+```
+
+The script writes:
+
+- `domain_consensus_<snapshot_date>.csv.gz`
+- `meta_<snapshot_date>.json`
+
+The CSV contains only derived public columns, not raw third-party ranks or
+source-specific percentile columns. The metadata JSON records source statuses
+from `meta.source_update_log`, methodology version, row count, and the planned
+data release tag (`data-YYYY-WNN`). Local archive files under `data/archive/`
+are ignored by git.
+
 ## Disclaimer
 
 Open-source project released under the MIT License. Commercial use is welcome,

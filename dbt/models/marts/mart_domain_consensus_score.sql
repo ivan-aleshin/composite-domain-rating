@@ -57,7 +57,7 @@ enriched AS (
         radar.radar_rank_bucket,
         radar.radar_buckets_seen,
         radar.p_radar,
-        COALESCE(tranco.snapshot_date, majestic.snapshot_date, radar.snapshot_date) AS snapshot_date,
+        CAST('{{ var("snapshot_date", run_started_at.strftime("%Y-%m-%d")) }}' AS DATE) AS snapshot_date,
         IF(tranco.p_tranco IS NOT NULL, 1, 0)
         + IF(majestic.p_majestic IS NOT NULL, 1, 0)
         + IF(radar.p_radar IS NOT NULL, 1, 0) AS sources_count

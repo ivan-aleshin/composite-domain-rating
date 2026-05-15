@@ -16,6 +16,7 @@ service-account*.json
 # Data (raw source files and local lineage are local-only)
 data/raw/**
 !data/raw/.gitkeep
+data/archive/**
 
 # Python
 __pycache__/
