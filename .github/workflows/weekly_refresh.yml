@@ -1,0 +1,164 @@
+name: Weekly Data Refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot_date:
+        description: "Snapshot date to use for source loads and mart build (YYYY-MM-DD). Defaults to run date."
+        required: false
+        type: string
+      create_release:
+        description: "Create a GitHub prerelease with the derived CSV and lineage JSON."
+        required: true
+        default: true
+        type: boolean
+  schedule:
+    # Monday 06:00 UTC
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-refresh
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: composite-domain-rating
+  BQ_LOCATION: US
+  DBT_TARGET_DATASET: dbt_prod
+  MARTS_DATASET: dbt_prod_marts
+  RAW_DATASET: raw
+  META_DATASET: meta
+  ARCHIVE_OUTPUT_DIR: data/archive
+
+jobs:
+  refresh-and-archive:
+    name: Refresh sources and archive mart
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure Google credentials
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          mkdir -p .gcp
+          printf '%s' "$GCP_SA_KEY" > .gcp/service-account.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$PWD/.gcp/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Configure dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml <<EOF
+          composite_domain_rating:
+            target: prod
+            outputs:
+              prod:
+                type: bigquery
+                method: service-account
+                project: ${GCP_PROJECT_ID}
+                dataset: ${DBT_TARGET_DATASET}
+                location: ${BQ_LOCATION}
+                threads: 4
+                timeout_seconds: 600
+                maximum_bytes_billed: 21474836480
+                priority: batch
+                keyfile: ${GOOGLE_APPLICATION_CREDENTIALS}
+          EOF
+
+      - name: Resolve snapshot date
+        id: snapshot
+        env:
+          INPUT_SNAPSHOT_DATE: ${{ inputs.snapshot_date }}
+        run: |
+          if [ -n "$INPUT_SNAPSHOT_DATE" ]; then
+            SNAPSHOT_DATE="$INPUT_SNAPSHOT_DATE"
+          else
+            SNAPSHOT_DATE="$(date -u +%F)"
+          fi
+          echo "snapshot_date=$SNAPSHOT_DATE" >> "$GITHUB_OUTPUT"
+          echo "SNAPSHOT_DATE=$SNAPSHOT_DATE" >> "$GITHUB_ENV"
+
+      - name: Install dbt packages
+        working-directory: dbt
+        run: dbt deps
+
+      - name: Download ranking sources
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          python scripts/download_sources.py \
+            --all \
+            --date "$SNAPSHOT_DATE" \
+            --output-dir data/raw
+
+      - name: Load ranking sources to BigQuery
+        run: |
+          for source in tranco majestic cloudflare; do
+            python scripts/load_to_bigquery.py \
+              --source "$source" \
+              --date "$SNAPSHOT_DATE" \
+              --input-dir data/raw \
+              --project "$GCP_PROJECT_ID" \
+              --location "$BQ_LOCATION" \
+              --raw-dataset "$RAW_DATASET" \
+              --meta-dataset "$META_DATASET"
+          done
+
+      - name: dbt source freshness
+        working-directory: dbt
+        run: dbt source freshness --select source:raw
+
+      - name: dbt run
+        working-directory: dbt
+        run: |
+          dbt run \
+            --select +mart_domain_consensus_score \
+            --vars "{\"snapshot_date\": \"$SNAPSHOT_DATE\"}"
+
+      - name: dbt test
+        working-directory: dbt
+        run: |
+          dbt test --select \
+            mart_domain_consensus_score \
+            score_direction \
+            sources_count_matches_percentiles \
+            score_in_range \
+            coverage_tier_consistency \
+            no_source_silent_failure \
+            source_percentiles_populated \
+            single_snapshot_date_per_mart
+
+      - name: Archive derived mart
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHOULD_CREATE_RELEASE: ${{ github.event_name == 'schedule' || inputs.create_release }}
+        run: |
+          args=(
+            scripts/archive_to_release.py
+            --project "$GCP_PROJECT_ID"
+            --location "$BQ_LOCATION"
+            --marts-dataset "$MARTS_DATASET"
+            --meta-dataset "$META_DATASET"
+            --snapshot-date "$SNAPSHOT_DATE"
+            --output-dir "$ARCHIVE_OUTPUT_DIR"
+          )
+          if [ "$SHOULD_CREATE_RELEASE" = "true" ]; then
+            args+=(--create-release --repo "$GITHUB_REPOSITORY")
+          fi
+          python "${args[@]}"

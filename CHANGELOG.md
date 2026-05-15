@@ -19,3 +19,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Run-level mart `snapshot_date` semantics for coherent weekly archive snapshots.
 - Release archive exporter for derived CSV and lineage JSON artifacts.
 - Mart validation test requiring a single archive snapshot date per build.
+- Weekly refresh workflow for source ingestion, dbt build/test, archive export, and data prerelease publishing.
