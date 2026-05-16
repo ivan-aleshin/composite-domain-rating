@@ -7,10 +7,9 @@
 [![dbt](https://img.shields.io/badge/dbt-1.8+-orange.svg)](https://www.getdbt.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Status**: first multi-source slice in progress. Tranco, Majestic Million, and
-Cloudflare Radar ingestion paths, BigQuery raw loading, dbt models, and
-score-direction tests are in place; release automation is being built
-incrementally.
+**Status**: beta. The first three-source data release has been published with
+Tranco, Majestic Million, and Cloudflare Radar, including BigQuery loading, dbt
+models, data quality tests, lineage metadata, and weekly archive automation.
 
 ## Overview
 
@@ -31,12 +30,14 @@ fewer signals remain in the mart for coverage analysis, but their score is
 reserved for five-source coverage.
 
 The implementation uses dbt Core on BigQuery, with ingestion scripts, source
-lineage, CI checks, and a public derived CSV planned as the project matures.
+lineage, CI checks, and public derived CSV archives.
 
 ## Quick links
 
 - [Project specification](./SPEC.md)
 - [Roadmap](./ROADMAP.md)
+- [Data releases](https://github.com/ivan-aleshin/composite-domain-rating/releases)
+- [Weekly refresh workflow](https://github.com/ivan-aleshin/composite-domain-rating/actions/workflows/weekly_refresh.yml)
 
 ## Current Scope
 
@@ -49,6 +50,19 @@ Radar:
 - build the first staging, intermediate, and mart dbt models
 - validate source direction, coverage semantics, score range, and basic data quality
 - publish only derived output, not raw third-party rankings
+
+## Beta Data
+
+Historical beta data snapshots are published as GitHub prereleases with tags
+like `data-YYYY-WNN`.
+
+Each data release includes:
+
+- `domain_consensus_<snapshot_date>.csv.gz` — derived public output
+- `meta_<snapshot_date>.json` — lineage metadata with source statuses and
+  methodology version
+
+The first beta code/methodology release is `v0.1.0-beta`.
 
 ## Getting started
 
