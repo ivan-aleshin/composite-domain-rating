@@ -259,8 +259,10 @@ For a portfolio context, the project demonstrates:
 
 ## Disclaimer
 
-Open-source project released under the MIT License. Commercial use is welcome,
-subject to the license terms and the terms of the underlying data sources.
+Project code is released under the MIT License. Derived data archives are built
+from third-party sources with varying terms, including non-commercial terms.
+Users should review `LICENSE-DATA.md` before using the archives in commercial
+or production workflows.
 
 This project is not affiliated with or endorsed by any data source providers.
 The consensus score reflects observed prominence across public sources, not an
