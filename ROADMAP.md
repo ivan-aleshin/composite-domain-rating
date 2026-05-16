@@ -22,8 +22,9 @@ behavior, not just planned architecture.
 
 ## 3. Multi-Source Ranking Core
 
-- add Majestic Million, Cloudflare Radar, CrUX, and OpenPageRank where access
-  and licensing allow
+- add Majestic Million and Cloudflare Radar
+- evaluate CrUX as the next ranking source
+- keep OpenPageRank conditional/deferred unless access and licensing are clear
 - normalize source-specific ranks and buckets into comparable percentile scores
 - compute equal-weight consensus scores for domains with sufficient coverage
 - expose coverage tiers so sparse domains are not over-interpreted
@@ -41,5 +42,5 @@ behavior, not just planned architecture.
 - publish derived CSV snapshots with lineage metadata
 - generate dbt documentation
 - write methodology notes with validation and limitations
-- add release notes and citation metadata once the project has a stable first
-  version
+- add data license notes and release notes
+- citation metadata remains optional until there is a stable citation need
