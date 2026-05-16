@@ -57,10 +57,13 @@ underlying sources where appropriate:
 
 ## Commercial Use
 
-The code is MIT licensed. Commercial use of the derived archive may still be
-constrained by the underlying source terms, especially where a source uses a
-non-commercial license or API terms. Users are responsible for verifying that
-their intended use is compatible with those terms.
+The code is MIT licensed. The derived archive is not licensed as a blanket
+commercial-use dataset by this project.
+
+Commercial or production use of the archive may be constrained by underlying
+source terms, especially Cloudflare Radar's non-commercial licensing note and
+any API terms that apply to source access. Users are responsible for verifying
+that their intended use is compatible with those terms.
 
 ## Future Sources
 

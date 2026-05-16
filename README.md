@@ -167,8 +167,10 @@ The workflow expects these repository secrets:
 
 ## Disclaimer
 
-Open-source project released under the MIT License. Commercial use is welcome,
-subject to the license terms and the terms of the underlying data sources.
+Project code is released under the MIT License. The derived data archives are
+built from third-party sources with varying terms, including non-commercial
+terms. Review [LICENSE-DATA.md](./LICENSE-DATA.md) before using the archives in
+commercial or production workflows.
 
 This project is not affiliated with or endorsed by any data source providers.
 Scores and flags are derived analytical signals, not authoritative security,
