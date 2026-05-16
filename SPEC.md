@@ -29,7 +29,6 @@ Different public sources measure different dimensions:
 
 - **Tranco** — traffic / popularity (aggregated from multiple traffic signals)
 - **Majestic Million** — link graph breadth (referring subnets)
-- **OpenPageRank** — position in the web graph
 - **Cloudflare Radar** — DNS visibility (independent DNS signal)
 - **CrUX** — real Chrome users (real-user presence signal)
 
@@ -56,7 +55,6 @@ is the average of available percentile ranks, scaled to 0–100.
 -- Inverted PERCENT_RANK so that "best" gets ~1.0
 1 - PERCENT_RANK() OVER (ORDER BY tranco_rank ASC)        AS p_tranco
 1 - PERCENT_RANK() OVER (ORDER BY ref_subnets DESC)       AS p_majestic
-1 - PERCENT_RANK() OVER (ORDER BY open_page_rank DESC)    AS p_opr
 1 - PERCENT_RANK() OVER (ORDER BY radar_rank_bucket ASC)  AS p_radar
 1 - PERCENT_RANK() OVER (ORDER BY crux_rank_bucket ASC)   AS p_crux
 ```
@@ -77,17 +75,17 @@ rankings.
 
 ### Coverage Threshold
 
-A consensus score requires at least **3 of 5 sources** by definition — fewer
+A consensus score requires at least **3 ranking sources** by definition; fewer
 signals are insufficient for "consensus". Domains with sparse coverage are
 reported with `consensus_score = NULL` and `coverage_tier = 'sparse'`,
 preserving raw signals without misleading aggregation.
 
 | Coverage tier | Sources present | Score |
 |---|---|---|
-| `full` | 5/5 | computed |
-| `high` | 4/5 | computed |
-| `partial` | 3/5 | computed |
-| `sparse` | 1–2/5 | NULL |
+| `full` | 5 sources | computed |
+| `high` | 4 sources | computed |
+| `partial` | 3 sources | computed |
+| `sparse` | 1-2 sources | NULL |
 
 ### Methodology Versioning
 
@@ -132,11 +130,11 @@ security verdict.
 
 | Source | Signal | Format | Status |
 |---|---|---|---|
-| Tranco | Traffic / popularity (Borda aggregate) | CSV bulk (30-day list) | Required |
-| Majestic Million | Link graph breadth (RefSubNets) | CSV bulk | Required |
-| Cloudflare Radar | DNS visibility (popularity bucket) | API | Required |
-| CrUX | Real Chrome users (rank bucket) | BigQuery public dataset | Required |
-| OpenPageRank | Web graph position | CSV bulk | **Conditional** — drops to v1.1 if licensing or access blocks > 2h |
+| Tranco | Traffic / popularity (Borda aggregate) | CSV bulk | Implemented |
+| Majestic Million | Link graph breadth (RefSubNets) | CSV bulk | Implemented |
+| Cloudflare Radar | DNS visibility (popularity bucket) | API | Implemented |
+| CrUX | Real Chrome users (rank bucket) | BigQuery public dataset | Candidate next source |
+| OpenPageRank | Web graph position | CSV/API | Conditional/deferred |
 
 CrUX and Cloudflare Radar contribute bucket-based signals — domains within the
 same bucket are tied. This is documented as a known limitation of those
@@ -171,13 +169,13 @@ sources, not a flaw in aggregation.
 
 ## Public Output
 
-A weekly aggregated CSV is published to GitHub Releases. Schema:
+A weekly aggregated CSV is published to GitHub Releases. Beta schema:
 
 ```
 registered_domain
 consensus_score              -- 0–100, or NULL if coverage < threshold
 coverage_tier                -- full | high | partial | sparse
-sources_count                -- 0–5
+sources_count                -- number of ranking sources present
 ranking_sources_present      -- comma-separated list
 tld_category                 -- from curated seed
 is_spam_prone_tld            -- from curated seed
@@ -205,9 +203,8 @@ snapshot dates, row counts, and methodology version.
 - **Warehouse**: BigQuery sandbox (free tier — 10 GB storage, 1 TB queries/month)
 - **Transformation**: dbt Core (BigQuery adapter)
 - **Orchestration**: GitHub Actions (weekly cron)
-- **Documentation**: dbt docs auto-deployed to GitHub Pages
+- **Documentation**: README, methodology notes, data license notes, dbt docs later
 - **History**: GitHub Releases as compressed CSV archive
-- **Citation**: Zenodo DOI integration
 
 ### Why BigQuery Sandbox
 
@@ -225,7 +222,7 @@ The pipeline is designed to survive partial source failures:
 - Stale data (≤ 14 days) used as fallback when fresh download fails
 - Missing source → empty raw table; downstream models gracefully degrade
 - Source statuses surfaced in lineage JSON of each data release
-- Tiered alerting: 1 missing source = warning, ≥ 2 = pipeline failure
+- Tiered alerting planned: 1 missing source = warning, 2 or more = failure
 
 ---
 

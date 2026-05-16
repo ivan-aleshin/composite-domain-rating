@@ -35,6 +35,8 @@ lineage, CI checks, and public derived CSV archives.
 ## Quick links
 
 - [Project specification](./SPEC.md)
+- [Methodology](./METHODOLOGY.md)
+- [Data license notes](./LICENSE-DATA.md)
 - [Roadmap](./ROADMAP.md)
 - [Data releases](https://github.com/ivan-aleshin/composite-domain-rating/releases)
 - [Weekly refresh workflow](https://github.com/ivan-aleshin/composite-domain-rating/actions/workflows/weekly_refresh.yml)
@@ -63,6 +65,9 @@ Each data release includes:
   methodology version
 
 The first beta code/methodology release is `v0.1.0-beta`.
+
+For interpretation details and limitations, see [METHODOLOGY.md](./METHODOLOGY.md).
+For source terms and publication constraints, see [LICENSE-DATA.md](./LICENSE-DATA.md).
 
 ## Getting started
 
