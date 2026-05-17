@@ -13,6 +13,11 @@ WITH source_counts AS (
         'radar' AS source_name,
         COUNTIF(p_radar IS NOT NULL) AS populated_rows
     FROM {{ ref('mart_domain_consensus_score') }}
+    UNION ALL
+    SELECT
+        'crux' AS source_name,
+        COUNTIF(p_crux IS NOT NULL) AS populated_rows
+    FROM {{ ref('mart_domain_consensus_score') }}
 )
 
 SELECT *

@@ -19,3 +19,11 @@ SELECT
     'radar' AS source_name
 FROM {{ ref('mart_domain_consensus_score') }}
 WHERE radar_rank_bucket IS NOT NULL AND p_radar IS NULL
+
+UNION ALL
+
+SELECT
+    registered_domain,
+    'crux' AS source_name
+FROM {{ ref('mart_domain_consensus_score') }}
+WHERE crux_rank_bucket IS NOT NULL AND p_crux IS NULL

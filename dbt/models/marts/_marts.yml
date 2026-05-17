@@ -17,6 +17,8 @@ models:
         description: Majestic RefSubNets percentile score, where higher is better.
       - name: p_radar
         description: Cloudflare Radar bucket percentile score, where higher is better.
+      - name: p_crux
+        description: CrUX popularity bucket percentile score, where higher is better.
       - name: majestic_ref_subnets
         description: Best Majestic RefSubNets value observed for the registered domain.
       - name: majestic_subdomains_seen
@@ -25,6 +27,12 @@ models:
         description: Smallest Cloudflare Radar ranking bucket containing the domain.
       - name: radar_buckets_seen
         description: Count of Cloudflare Radar buckets containing the registered domain.
+      - name: crux_rank_bucket
+        description: Smallest CrUX experimental popularity rank bucket observed for the registered domain.
+      - name: crux_origins_seen
+        description: Count of CrUX origins collapsed into the registered domain.
+      - name: crux_snapshot_date
+        description: CrUX monthly dataset snapshot date for rows with CrUX coverage.
       - name: coverage_tier
         description: Coverage tier for implemented ranking sources. Sparse rows keep raw signals but do not receive a consensus score.
         data_tests:

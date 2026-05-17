@@ -35,6 +35,16 @@ radar AS (
     FROM {{ ref('int_domains_radar') }}
 ),
 
+crux AS (
+    SELECT
+        registered_domain,
+        crux_rank_bucket,
+        origins_seen AS crux_origins_seen,
+        p_crux,
+        snapshot_date AS crux_snapshot_date
+    FROM {{ ref('int_domains_crux') }}
+),
+
 domains AS (
     SELECT registered_domain
     FROM tranco
@@ -44,6 +54,9 @@ domains AS (
     UNION DISTINCT
     SELECT registered_domain
     FROM radar
+    UNION DISTINCT
+    SELECT registered_domain
+    FROM crux
 ),
 
 enriched AS (
@@ -57,10 +70,15 @@ enriched AS (
         radar.radar_rank_bucket,
         radar.radar_buckets_seen,
         radar.p_radar,
+        crux.crux_rank_bucket,
+        crux.crux_origins_seen,
+        crux.p_crux,
+        crux.crux_snapshot_date,
         CAST('{{ var("snapshot_date", run_started_at.strftime("%Y-%m-%d")) }}' AS DATE) AS snapshot_date,
         IF(tranco.p_tranco IS NOT NULL, 1, 0)
         + IF(majestic.p_majestic IS NOT NULL, 1, 0)
-        + IF(radar.p_radar IS NOT NULL, 1, 0) AS sources_count
+        + IF(radar.p_radar IS NOT NULL, 1, 0)
+        + IF(crux.p_crux IS NOT NULL, 1, 0) AS sources_count
     FROM domains
     LEFT JOIN tranco
         ON domains.registered_domain = tranco.registered_domain
@@ -68,6 +86,8 @@ enriched AS (
         ON domains.registered_domain = majestic.registered_domain
     LEFT JOIN radar
         ON domains.registered_domain = radar.registered_domain
+    LEFT JOIN crux
+        ON domains.registered_domain = crux.registered_domain
 ),
 
 scored AS (
@@ -79,6 +99,7 @@ scored AS (
                     COALESCE(p_tranco, 0)
                     + COALESCE(p_majestic, 0)
                     + COALESCE(p_radar, 0)
+                    + COALESCE(p_crux, 0)
                 ) / sources_count * 100
         END AS consensus_score,
         CASE
@@ -100,6 +121,10 @@ SELECT
     radar_rank_bucket,
     radar_buckets_seen,
     p_radar,
+    crux_rank_bucket,
+    crux_origins_seen,
+    p_crux,
+    crux_snapshot_date,
     consensus_score,
     coverage_tier,
     sources_count,
@@ -107,7 +132,8 @@ SELECT
         ARRAY_CONCAT(
             IF(p_tranco IS NOT NULL, ['tranco'], []),
             IF(p_majestic IS NOT NULL, ['majestic'], []),
-            IF(p_radar IS NOT NULL, ['radar'], [])
+            IF(p_radar IS NOT NULL, ['radar'], []),
+            IF(p_crux IS NOT NULL, ['crux'], [])
         ),
         ','
     ) AS ranking_sources_present,
@@ -118,5 +144,5 @@ SELECT
     ARRAY<STRING>[] AS threat_types,
     CAST(NULL AS DATE) AS last_threat_seen,
     snapshot_date,
-    '{{ var("methodology_version", "v1.0.0") }}' AS methodology_version
+    '{{ var("methodology_version", "v0.2.0-beta") }}' AS methodology_version
 FROM scored

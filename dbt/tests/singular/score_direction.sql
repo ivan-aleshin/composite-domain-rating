@@ -25,12 +25,23 @@ radar_direction AS (
     WHERE p_radar IS NOT NULL
 ),
 
+crux_direction AS (
+    SELECT
+        'crux' AS source_name,
+        ARRAY_AGG(p_crux ORDER BY crux_rank_bucket ASC LIMIT 1)[OFFSET(0)] AS best_score,
+        ARRAY_AGG(p_crux ORDER BY crux_rank_bucket DESC LIMIT 1)[OFFSET(0)] AS worst_score
+    FROM {{ ref('mart_domain_consensus_score') }}
+    WHERE p_crux IS NOT NULL
+),
+
 checks AS (
     SELECT * FROM tranco_direction
     UNION ALL
     SELECT * FROM majestic_direction
     UNION ALL
     SELECT * FROM radar_direction
+    UNION ALL
+    SELECT * FROM crux_direction
 )
 
 SELECT *

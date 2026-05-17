@@ -71,3 +71,24 @@ models:
         description: Raw ingestion timestamp.
         data_tests:
           - not_null
+
+  - name: stg_crux__origins
+    description: CrUX origins collapsed to one row per registered domain for one monthly snapshot.
+    columns:
+      - name: registered_domain
+        description: Registered domain derived from the CrUX origin host.
+        data_tests:
+          - unique
+          - not_null
+      - name: crux_rank_bucket
+        description: Smallest CrUX experimental popularity rank bucket observed for the registered domain.
+        data_tests:
+          - not_null
+      - name: origins_seen
+        description: Count of CrUX origins collapsed into the registered domain.
+        data_tests:
+          - not_null
+      - name: snapshot_date
+        description: CrUX monthly snapshot date.
+        data_tests:
+          - not_null

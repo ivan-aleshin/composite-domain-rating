@@ -171,6 +171,10 @@ def export_public_csv(
         methodology_version
     FROM {quoted_table(project, marts_dataset, mart_table)}
     WHERE snapshot_date = @snapshot_date
+      AND (
+          consensus_score IS NOT NULL
+          OR sources_count >= 2
+      )
     """
     job_config = query_config(
         maximum_bytes_billed=maximum_bytes_billed,
@@ -258,6 +262,55 @@ def latest_source_statuses(
     return statuses
 
 
+def crux_source_status(
+    client: bigquery.Client,
+    project: str,
+    marts_dataset: str,
+    mart_table: str,
+    snapshot_date: date,
+    maximum_bytes_billed: int,
+) -> dict[str, Any]:
+    query = f"""
+    SELECT
+        COUNTIF(p_crux IS NOT NULL) AS row_count,
+        MIN(crux_rank_bucket) AS best_rank_bucket,
+        MAX(crux_rank_bucket) AS worst_rank_bucket,
+        MAX(crux_snapshot_date) AS crux_snapshot_date
+    FROM {quoted_table(project, marts_dataset, mart_table)}
+    WHERE snapshot_date = @snapshot_date
+    """
+    job_config = query_config(
+        maximum_bytes_billed=maximum_bytes_billed,
+        query_parameters=[
+            bigquery.ScalarQueryParameter("snapshot_date", "DATE", snapshot_date),
+        ],
+    )
+    rows = list(client.query(query, job_config=job_config).result())
+    row = rows[0] if rows else None
+    row_count = int(row.row_count or 0) if row else 0
+    crux_snapshot_date = row.crux_snapshot_date if row else None
+    return {
+        "status": "fresh" if row_count > 0 else "missing",
+        "load_status": "public_bigquery_dataset",
+        "update_started_at": None,
+        "update_completed_at": json_safe(crux_snapshot_date),
+        "row_count": row_count,
+        "age_days": (utc_now().date() - crux_snapshot_date).days if crux_snapshot_date else None,
+        "age_basis": "crux_month_start",
+        "load_age_days": None,
+        "source_metadata": {
+            "source_type": "bigquery_public_dataset",
+            "source_table": "chrome-ux-report.experimental.global",
+            "freshness_note": "age_days is measured from the first day of the CrUX dataset month, not from publication time.",
+            "snapshot_date": json_safe(crux_snapshot_date),
+            "crux_yyyymm": crux_snapshot_date.strftime("%Y%m") if crux_snapshot_date else None,
+            "best_rank_bucket": row.best_rank_bucket if row else None,
+            "worst_rank_bucket": row.worst_rank_bucket if row else None,
+        },
+        "error_message": None if row_count > 0 else "No CrUX rows found in mart snapshot.",
+    }
+
+
 def write_lineage_json(
     metadata_path: Path,
     project: str,
@@ -278,6 +331,12 @@ def write_lineage_json(
         "project": project,
         "mart_table": table_ref(project, marts_dataset, mart_table),
         "public_columns": list(PUBLIC_COLUMNS),
+        "archive_policy": {
+            "description": "Public archive includes scored rows and sparse rows observed by at least two ranking sources.",
+            "included": "consensus_score IS NOT NULL OR sources_count >= 2",
+            "excluded": "one-source-only rows",
+            "internal_mart_scope": "full diagnostic source universe",
+        },
         "files": {
             "csv": str(csv_path),
             "metadata": str(metadata_path),
@@ -383,6 +442,14 @@ def main() -> int:
         client=client,
         project=project,
         meta_dataset=args.meta_dataset,
+        maximum_bytes_billed=args.maximum_bytes_billed,
+    )
+    source_statuses["crux"] = crux_source_status(
+        client=client,
+        project=project,
+        marts_dataset=args.marts_dataset,
+        mart_table=args.mart_table,
+        snapshot_date=snapshot_date,
         maximum_bytes_billed=args.maximum_bytes_billed,
     )
     write_lineage_json(

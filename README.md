@@ -7,9 +7,9 @@
 [![dbt](https://img.shields.io/badge/dbt-1.8+-orange.svg)](https://www.getdbt.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Status**: beta. The first three-source data release has been published with
-Tranco, Majestic Million, and Cloudflare Radar, including BigQuery loading, dbt
-models, data quality tests, lineage metadata, and weekly archive automation.
+**Status**: beta. The first data release was published with Tranco, Majestic
+Million, and Cloudflare Radar. CrUX is now integrated as a fourth dbt source and
+will appear in the next derived data release after this change is merged.
 
 ## Overview
 
@@ -22,12 +22,12 @@ normalizes each source into percentile ranks, combines available signals with
 equal weighting, and keeps source coverage explicit so sparse data is not
 presented as false certainty.
 
-For the current three-source beta slice, a domain receives a `consensus_score`
-only when it is present in all three implemented ranking sources. Domains with
-fewer signals remain in the mart for coverage analysis, but their score is
-`NULL` and their `coverage_tier` is `sparse`. Scored beta rows currently use
-`coverage_tier = partial`, matching the v1.0 tier taxonomy where `full` is
-reserved for five-source coverage.
+For the current beta slice, a domain receives a `consensus_score` when it is
+present in at least three ranking sources. Domains with fewer signals remain in
+the mart for coverage analysis, but their score is `NULL` and their
+`coverage_tier` is `sparse`. Four-source rows use `coverage_tier = high`,
+matching the v1.0 tier taxonomy where `full` is reserved for five-source
+coverage.
 
 The implementation uses dbt Core on BigQuery, with ingestion scripts, source
 lineage, CI checks, and public derived CSV archives.
@@ -43,10 +43,11 @@ lineage, CI checks, and public derived CSV archives.
 
 ## Current Scope
 
-The current working slice includes Tranco, Majestic Million, and Cloudflare
-Radar:
+The current working slice includes Tranco, Majestic Million, Cloudflare Radar,
+and CrUX:
 
 - download and normalize Tranco, Majestic, and Cloudflare Radar domains
+- read CrUX monthly popularity buckets from the public BigQuery dataset
 - load normalized raw data into BigQuery
 - track source update status in `meta.source_update_log`
 - build the first staging, intermediate, and mart dbt models
@@ -121,16 +122,17 @@ python scripts/load_to_bigquery.py \
   --location US
 
 cd dbt
-dbt run --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains mart_domain_consensus_score
-dbt test --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains mart_domain_consensus_score score_direction
+dbt run --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains stg_crux__origins mart_domain_consensus_score
+dbt test --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains stg_crux__origins mart_domain_consensus_score score_direction
 ```
 
 Raw source files under `data/raw/` are local-only and ignored by git. Production
 fallback for stale sources is based on private BigQuery raw tables and
 `meta.source_update_log`, not local cache files.
 
-Cloudflare Radar is modeled as ranking buckets rather than exact ranks. The
-pipeline uses the smallest bucket containing a domain as the source signal.
+Cloudflare Radar and CrUX are modeled as ranking buckets rather than exact
+ranks. The pipeline uses the smallest bucket containing a domain as the source
+signal.
 
 ## Derived archive export
 
@@ -155,6 +157,10 @@ source-specific percentile columns. The metadata JSON records source statuses
 from `meta.source_update_log`, methodology version, row count, and the planned
 data release tag (`data-YYYY-WNN`). Local archive files under `data/archive/`
 are ignored by git.
+
+The mart keeps the full diagnostic source universe, including one-source-only
+rows. Public archives exclude one-source-only rows and include domains that are
+scored or observed by at least two ranking sources.
 
 Diagnostic dbt analyses under `dbt/analyses/` help review source coverage,
 overlap, percentile correlation, source agreement, and jackknife influence

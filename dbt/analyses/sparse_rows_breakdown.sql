@@ -6,7 +6,8 @@ WITH sparse_rows AS (
             ARRAY_CONCAT(
                 IF(p_tranco IS NULL, ['tranco'], []),
                 IF(p_majestic IS NULL, ['majestic'], []),
-                IF(p_radar IS NULL, ['radar'], [])
+                IF(p_radar IS NULL, ['radar'], []),
+                IF(p_crux IS NULL, ['crux'], [])
             ),
             ','
         ) AS missing_sources

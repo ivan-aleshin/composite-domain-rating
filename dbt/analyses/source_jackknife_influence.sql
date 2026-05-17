@@ -5,11 +5,13 @@ WITH scored AS (
         sources_count,
         COALESCE(p_tranco, 0)
         + COALESCE(p_majestic, 0)
-        + COALESCE(p_radar, 0) AS source_score_sum,
+        + COALESCE(p_radar, 0)
+        + COALESCE(p_crux, 0) AS source_score_sum,
         ARRAY_CONCAT(
             IF(p_tranco IS NOT NULL, [STRUCT('tranco' AS source_name, p_tranco AS score)], []),
             IF(p_majestic IS NOT NULL, [STRUCT('majestic' AS source_name, p_majestic AS score)], []),
-            IF(p_radar IS NOT NULL, [STRUCT('radar' AS source_name, p_radar AS score)], [])
+            IF(p_radar IS NOT NULL, [STRUCT('radar' AS source_name, p_radar AS score)], []),
+            IF(p_crux IS NOT NULL, [STRUCT('crux' AS source_name, p_crux AS score)], [])
         ) AS source_scores
     FROM {{ ref('mart_domain_consensus_score') }}
     WHERE

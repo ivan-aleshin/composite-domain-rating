@@ -3,7 +3,8 @@ WITH source_flags AS (
         registered_domain,
         p_tranco IS NOT NULL AS has_tranco,
         p_majestic IS NOT NULL AS has_majestic,
-        p_radar IS NOT NULL AS has_radar
+        p_radar IS NOT NULL AS has_radar,
+        p_crux IS NOT NULL AS has_crux
     FROM {{ ref('mart_domain_consensus_score') }}
 ),
 
@@ -31,6 +32,33 @@ pairs AS (
         'radar' AS source_b,
         has_majestic AS in_source_a,
         has_radar AS in_source_b
+    FROM source_flags
+
+    UNION ALL
+
+    SELECT
+        'tranco' AS source_a,
+        'crux' AS source_b,
+        has_tranco AS in_source_a,
+        has_crux AS in_source_b
+    FROM source_flags
+
+    UNION ALL
+
+    SELECT
+        'majestic' AS source_a,
+        'crux' AS source_b,
+        has_majestic AS in_source_a,
+        has_crux AS in_source_b
+    FROM source_flags
+
+    UNION ALL
+
+    SELECT
+        'radar' AS source_a,
+        'crux' AS source_b,
+        has_radar AS in_source_a,
+        has_crux AS in_source_b
     FROM source_flags
 )
 

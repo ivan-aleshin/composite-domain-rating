@@ -4,6 +4,21 @@ version: 2
 # See ROADMAP.md for the public milestone sequence.
 
 sources:
+  - name: crux
+    description: Chrome UX Report public BigQuery dataset.
+    database: chrome-ux-report
+    schema: experimental
+    tables:
+      - name: global
+        description: Monthly global CrUX origin data with experimental popularity buckets.
+        columns:
+          - name: yyyymm
+            description: CrUX dataset month in YYYYMM format.
+          - name: origin
+            description: Web origin included in the CrUX dataset.
+          - name: experimental.popularity.rank
+            description: Experimental CrUX popularity rank magnitude bucket.
+
   - name: raw
     description: Raw data loaded from external sources by ingestion scripts.
     database: "{{ target.project }}"
