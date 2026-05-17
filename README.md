@@ -156,6 +156,10 @@ from `meta.source_update_log`, methodology version, row count, and the planned
 data release tag (`data-YYYY-WNN`). Local archive files under `data/archive/`
 are ignored by git.
 
+Diagnostic dbt analyses under `dbt/analyses/` help review source coverage,
+overlap, percentile correlation, source agreement, and jackknife influence
+before adding new ranking sources.
+
 The same export path is used by the weekly GitHub Actions refresh workflow,
 which can also be run manually from the Actions tab. Scheduled data releases
 are created as GitHub prereleases so they do not replace code releases.
