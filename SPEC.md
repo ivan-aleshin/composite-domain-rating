@@ -133,7 +133,7 @@ security verdict.
 | Tranco | Traffic / popularity (Borda aggregate) | CSV bulk | Implemented |
 | Majestic Million | Link graph breadth (RefSubNets) | CSV bulk | Implemented |
 | Cloudflare Radar | DNS visibility (popularity bucket) | API | Implemented |
-| CrUX | Real Chrome users (rank bucket) | BigQuery public dataset | Candidate next source |
+| CrUX | Real Chrome users (rank bucket) | BigQuery public dataset | Implemented |
 | OpenPageRank | Web graph position | CSV/API | Conditional/deferred |
 
 CrUX and Cloudflare Radar contribute bucket-based signals — domains within the

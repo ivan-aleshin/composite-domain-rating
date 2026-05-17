@@ -23,6 +23,7 @@ The project does not publish:
 - raw third-party ranks;
 - raw Majestic `RefSubNets`;
 - raw Cloudflare Radar buckets;
+- raw CrUX popularity buckets;
 - source-specific percentile columns.
 
 Raw source data is used only inside the private/local processing pipeline and
@@ -35,6 +36,7 @@ BigQuery raw tables.
 | Tranco | Download top-1M list and normalize to registered domains | Derived score only; raw rank is not published | Research-oriented ranking; cite Tranco methodology and paper |
 | Majestic Million | Download CSV and use `RefSubNets` as link breadth signal | Derived score only; raw `RefSubNets` is not published | Majestic page describes the list as Creative Commons Attribution 3.0 Unported |
 | Cloudflare Radar | Download ranking bucket datasets via API | Derived score only; raw buckets are not published | Cloudflare Radar about page states Radar API/direct-download data is CC BY-NC 4.0 |
+| CrUX | Query public BigQuery monthly origin data and use experimental popularity bucket | Derived score only; raw buckets are not published | Chrome for Developers documents CrUX BigQuery data access and schema |
 
 ## Source References
 
@@ -43,6 +45,7 @@ BigQuery raw tables.
 - Majestic Million: https://majestic.com/reports/majestic-million
 - Cloudflare Radar about/licensing note: https://radar.cloudflare.com/about
 - Cloudflare Radar datasets API: https://developers.cloudflare.com/api/resources/radar/subresources/datasets/
+- CrUX on BigQuery: https://developer.chrome.com/docs/crux/bigquery/
 
 ## Attribution
 
@@ -54,6 +57,7 @@ underlying sources where appropriate:
   Hardened Against Manipulation." NDSS 2019.
 - Majestic Million: Majestic, https://majestic.com/reports/majestic-million
 - Cloudflare Radar: Cloudflare Radar, https://radar.cloudflare.com/
+- CrUX: Chrome UX Report, https://developer.chrome.com/docs/crux/bigquery/
 
 ## Commercial Use
 

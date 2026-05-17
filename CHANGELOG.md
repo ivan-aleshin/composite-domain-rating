@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Data license notes for current ranking sources and derived archive output.
 - Source diagnostic dbt analyses for coverage, overlap, correlation, sparse-row breakdown,
   source agreement, disagreement outliers, and jackknife influence.
+- CrUX public BigQuery source integration with staging, percentile scoring,
+  mart integration, tests, diagnostics, and documentation updates.
+- Public archive inclusion diagnostics and export filtering to exclude
+  one-source-only rows while keeping them in the internal mart.
+- Methodology version corrected to `v0.2.0-beta` for the CrUX scoring change;
+  previous beta archives used the premature default `v1.0.0` label.
 
 ### Changed
 - Clarified code/data licensing language for derived archives.

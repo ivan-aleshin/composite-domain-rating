@@ -136,6 +136,7 @@ jobs:
         run: |
           dbt test --select \
             mart_domain_consensus_score \
+            stg_crux__origins \
             score_direction \
             sources_count_matches_percentiles \
             score_in_range \

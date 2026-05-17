@@ -19,14 +19,15 @@ clean-targets:
 # Project-wide variables
 vars:
   # Methodology version — bump when scoring formula changes
-  methodology_version: 'v1.0.0'
+  methodology_version: 'v0.2.0-beta'
 
   # Minimum number of ranking sources required to produce a consensus score
   # Domains with fewer sources are flagged as 'sparse' with NULL score
   min_sources_for_score: 3
 
-  # CrUX snapshot month — override for backfill or fallback when current
-  # month not yet published. Default: latest available.
+  # CrUX snapshot month — override for backfill or fallback.
+  # Default is derived conservatively from run_started_at:
+  # previous month on/after day 14, otherwise two months back.
   # Format: 'YYYYMM' (e.g., '202604')
   # crux_yyyymm: '202604'
 

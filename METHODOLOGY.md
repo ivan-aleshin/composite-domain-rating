@@ -7,13 +7,14 @@ does not mean, and how the public archive should be interpreted.
 ## Scope
 
 `composite-domain-rating` builds a derived consensus signal from independent
-public ranking sources. The beta release currently uses three ranking sources:
+public ranking sources. The beta release currently uses four ranking sources:
 
 | Source | Signal used | Direction |
 |---|---|---|
 | Tranco | Domain rank from the downloaded top-1M list | Lower rank is better |
 | Majestic Million | `RefSubNets` | Higher value is better |
 | Cloudflare Radar | Smallest observed ranking bucket | Smaller bucket is better |
+| CrUX | Experimental popularity rank bucket | Smaller bucket is better |
 
 The output is a weekly derived CSV archive. It is not a mirror of raw source
 data, and it does not redistribute raw third-party ranks.
@@ -49,6 +50,7 @@ Examples:
 - Tranco rank: `ORDER BY tranco_rank ASC`
 - Majestic RefSubNets: `ORDER BY ref_subnets DESC`
 - Cloudflare Radar bucket: `ORDER BY rank_bucket ASC`
+- CrUX popularity bucket: `ORDER BY crux_rank_bucket ASC`
 
 `PERCENT_RANK()` includes `NULL` values in the window if they are present.
 Therefore, intermediate models filter out null source signals before applying
@@ -56,9 +58,11 @@ the scoring macro. This is a correctness requirement: otherwise sparse source
 coverage would shift percentiles for valid rows.
 
 Ties receive the same percentile rank. This is expected and important for
-bucketed sources such as Cloudflare Radar.
+bucketed sources such as Cloudflare Radar and CrUX.
 
 ## Consensus Score
+
+The current beta methodology version is `v0.2.0-beta`.
 
 The public `consensus_score` is an equal-weight average of available source
 percentiles, scaled to 0-100:
@@ -67,9 +71,9 @@ percentiles, scaled to 0-100:
 consensus_score = average(non-null source percentiles) * 100
 ```
 
-In the beta release, `min_sources_for_score = 3`. A domain must appear in all
-three implemented beta ranking sources to receive a score. Domains with fewer
-signals remain in the mart and public CSV, but their score is `NULL`.
+In the beta release, `min_sources_for_score = 3`. A domain must appear in at
+least three implemented beta ranking sources to receive a score. Domains with
+fewer signals remain in the mart and public CSV, but their score is `NULL`.
 
 The project uses equal weighting because there is no external ground truth for
 "domain prominence" that would justify a learned or manually weighted formula.
@@ -87,9 +91,9 @@ Coverage tiers describe how many ranking sources support a score:
 | `partial` | 3 | computed |
 | `sparse` | 1-2 | `NULL` |
 
-The beta release has three implemented ranking sources, so scored beta rows are
-currently `partial`. This is deliberate: the tier names are kept stable for the
-future v1.0 taxonomy, where additional ranking sources may be added.
+The beta release has four implemented ranking sources, so the strongest current
+coverage tier is `high`. The `full` tier is reserved for future five-source
+coverage.
 
 Interpret `consensus_score` together with `coverage_tier` and
 `ranking_sources_present`. A score based on partial coverage is useful, but it
@@ -112,6 +116,12 @@ The CSV contains only derived public columns:
 
 The CSV does not include raw third-party ranks, source-specific signal values,
 or source percentile columns.
+
+The internal mart keeps the full diagnostic source universe, including
+one-source-only rows. Public archives exclude one-source-only rows and publish
+domains that are scored or observed by at least two ranking sources. This keeps
+the archive focused on domains with some multi-source evidence while preserving
+the broader universe for coverage diagnostics.
 
 The lineage JSON records source statuses, row counts, source metadata, the
 methodology version, and the archive row count.
@@ -156,9 +166,11 @@ Raw third-party source data is not published in GitHub Releases.
 
 ## Current Limitations
 
-- The beta score uses three ranking sources.
-- Cloudflare Radar is bucketed, so many domains intentionally share the same
-  source percentile.
+- The beta score uses four ranking sources.
+- Cloudflare Radar and CrUX are bucketed, so many domains intentionally share
+  the same source percentile.
+- CrUX is an origin-level dataset that is collapsed to registered domains; this
+  preserves domain-level identity but loses origin-level nuance.
 - Majestic measures link graph breadth, not user traffic.
 - Tranco is itself an aggregate ranking and is not independent of every ranking
   signal on the web.
@@ -170,8 +182,6 @@ Raw third-party source data is not published in GitHub Releases.
 
 Potential future additions:
 
-- CrUX as a fourth ranking source, with careful BigQuery public dataset
-  filtering;
 - risk/reputation feeds as a separate attribute layer;
 - sensitivity analysis across source percentiles;
 - fuller public documentation for v1.0.
@@ -193,3 +203,4 @@ boosted or suppressed by one source relative to the others.
 - Majestic Million: https://majestic.com/reports/majestic-million
 - Cloudflare Radar datasets API: https://developers.cloudflare.com/api/resources/radar/subresources/datasets/
 - Cloudflare Radar licensing note: https://radar.cloudflare.com/about
+- CrUX on BigQuery: https://developer.chrome.com/docs/crux/bigquery/
