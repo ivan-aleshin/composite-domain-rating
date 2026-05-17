@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Beta methodology documentation.
 - Data license notes for current ranking sources and derived archive output.
+- Source diagnostic dbt analyses for coverage, overlap, correlation, sparse-row breakdown,
+  source agreement, disagreement outliers, and jackknife influence.
 
 ### Changed
 - Clarified code/data licensing language for derived archives.

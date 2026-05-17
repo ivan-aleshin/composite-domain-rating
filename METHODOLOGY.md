@@ -180,6 +180,12 @@ OpenPageRank remains a conditional future candidate rather than a v1.0 blocker.
 Access, bulk availability, and license interpretation must be clear before it
 can be included.
 
+Source expansion should be guided by diagnostics in `dbt/analyses/`, especially
+coverage distribution, pairwise overlap, sparse-row breakdown, and percentile
+correlation between implemented sources. Source agreement and jackknife
+influence analyses are useful for identifying domains whose score is strongly
+boosted or suppressed by one source relative to the others.
+
 ## References
 
 - Tranco methodology: https://tranco-list.eu/methodology
