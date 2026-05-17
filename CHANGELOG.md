@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- CrUX public BigQuery schema smoke check for the weekly refresh workflow.
 - Beta methodology documentation.
 - Data license notes for current ranking sources and derived archive output.
 - Source diagnostic dbt analyses for coverage, overlap, correlation, sparse-row breakdown,

@@ -124,6 +124,12 @@ jobs:
         working-directory: dbt
         run: dbt source freshness --select source:raw
 
+      - name: CrUX schema smoke check
+        run: |
+          python scripts/check_crux_schema.py \
+            --project "$GCP_PROJECT_ID" \
+            --location "$BQ_LOCATION"
+
       - name: dbt run
         working-directory: dbt
         run: |
