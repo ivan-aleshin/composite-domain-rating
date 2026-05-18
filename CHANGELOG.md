@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Stable `data-latest` release asset support for automated consumers that need
+  a persistent URL for the newest derived archive.
 - CrUX public BigQuery schema smoke check for the weekly refresh workflow.
 - Beta methodology documentation.
 - Data license notes for current ranking sources and derived archive output.

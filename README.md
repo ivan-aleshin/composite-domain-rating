@@ -59,6 +59,15 @@ and CrUX:
 Historical beta data snapshots are published as GitHub prereleases with tags
 like `data-YYYY-WNN`.
 
+The latest derived archive is also published under stable asset URLs:
+
+- `https://github.com/ivan-aleshin/composite-domain-rating/releases/download/data-latest/domain_consensus_latest.csv.gz`
+- `https://github.com/ivan-aleshin/composite-domain-rating/releases/download/data-latest/meta_latest.json`
+
+The `data-latest` release is mutable and intended for automated consumers that
+want the newest available snapshot. For reproducible historical analysis, use
+the immutable weekly `data-YYYY-WNN` releases instead.
+
 Each data release includes:
 
 - `domain_consensus_<snapshot_date>.csv.gz` — derived public output
