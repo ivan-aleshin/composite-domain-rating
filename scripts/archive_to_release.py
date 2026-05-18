@@ -7,6 +7,7 @@ import csv
 import gzip
 import json
 import os
+import shutil
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -23,6 +24,7 @@ DEFAULT_MAXIMUM_BYTES_BILLED = 21_474_836_480
 DEFAULT_MARTS_DATASET = "marts"
 DEFAULT_META_DATASET = "meta"
 DEFAULT_MART_TABLE = "mart_domain_consensus_score"
+DEFAULT_LATEST_RELEASE_TAG = "data-latest"
 SOURCE_UPDATE_LOG_TABLE = "source_update_log"
 PUBLIC_COLUMNS = (
     "registered_domain",
@@ -377,6 +379,82 @@ def create_github_release(
     subprocess.run(command, check=True)
 
 
+def latest_asset_paths(output_dir: Path) -> tuple[Path, Path]:
+    return output_dir / "domain_consensus_latest.csv.gz", output_dir / "meta_latest.json"
+
+
+def update_latest_github_release(
+    latest_release_tag: str,
+    snapshot_date: date,
+    csv_path: Path,
+    metadata_path: Path,
+    repo: str | None,
+) -> None:
+    latest_csv_path, latest_metadata_path = latest_asset_paths(csv_path.parent)
+    shutil.copy2(csv_path, latest_csv_path)
+    shutil.copy2(metadata_path, latest_metadata_path)
+
+    view_command = ["gh", "release", "view", latest_release_tag]
+    if repo:
+        view_command.extend(["--repo", repo])
+    release_exists = subprocess.run(
+        view_command,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode == 0
+
+    notes = (
+        f"Mutable pointer to the latest derived domain consensus archive.\n\n"
+        f"Current snapshot date: {snapshot_date.isoformat()}.\n\n"
+        "For reproducible history, use the immutable weekly `data-YYYY-WNN` releases."
+    )
+    if release_exists:
+        edit_command = [
+            "gh",
+            "release",
+            "edit",
+            latest_release_tag,
+            "--prerelease",
+            "--title",
+            latest_release_tag,
+            "--notes",
+            notes,
+        ]
+        upload_command = [
+            "gh",
+            "release",
+            "upload",
+            latest_release_tag,
+            str(latest_csv_path),
+            str(latest_metadata_path),
+            "--clobber",
+        ]
+        if repo:
+            edit_command.extend(["--repo", repo])
+            upload_command.extend(["--repo", repo])
+        subprocess.run(edit_command, check=True)
+        subprocess.run(upload_command, check=True)
+        return
+
+    create_command = [
+        "gh",
+        "release",
+        "create",
+        latest_release_tag,
+        str(latest_csv_path),
+        str(latest_metadata_path),
+        "--prerelease",
+        "--title",
+        latest_release_tag,
+        "--notes",
+        notes,
+    ]
+    if repo:
+        create_command.extend(["--repo", repo])
+    subprocess.run(create_command, check=True)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", help="GCP project id; defaults to application default credentials project")
@@ -388,6 +466,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=Path("data/archive"), help="Archive output directory")
     parser.add_argument("--release-tag", help="Release tag; defaults to data-YYYY-WNN from snapshot date")
     parser.add_argument("--create-release", action="store_true", help="Create a GitHub prerelease using gh CLI")
+    parser.add_argument(
+        "--update-latest-release",
+        action="store_true",
+        help="Create or update a mutable latest data prerelease using stable asset names",
+    )
+    parser.add_argument(
+        "--latest-release-tag",
+        default=DEFAULT_LATEST_RELEASE_TAG,
+        help="Mutable latest data release tag",
+    )
     parser.add_argument("--repo", help="GitHub repository for gh release create, e.g. owner/name")
     parser.add_argument(
         "--progress-interval",
@@ -468,6 +556,15 @@ def main() -> int:
     if args.create_release:
         create_github_release(
             release_tag=release_tag,
+            snapshot_date=snapshot_date,
+            csv_path=csv_path,
+            metadata_path=metadata_path,
+            repo=args.repo,
+        )
+
+    if args.update_latest_release:
+        update_latest_github_release(
+            latest_release_tag=args.latest_release_tag,
             snapshot_date=snapshot_date,
             csv_path=csv_path,
             metadata_path=metadata_path,

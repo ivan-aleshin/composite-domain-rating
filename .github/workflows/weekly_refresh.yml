@@ -13,8 +13,8 @@ on:
         default: true
         type: boolean
   schedule:
-    # Monday 06:00 UTC
-    - cron: "0 6 * * 1"
+    # Monday 07:52 UTC
+    - cron: "52 7 * * 1"
 
 permissions:
   contents: write
@@ -166,6 +166,6 @@ jobs:
             --output-dir "$ARCHIVE_OUTPUT_DIR"
           )
           if [ "$SHOULD_CREATE_RELEASE" = "true" ]; then
-            args+=(--create-release --repo "$GITHUB_REPOSITORY")
+            args+=(--create-release --update-latest-release --repo "$GITHUB_REPOSITORY")
           fi
           python "${args[@]}"
