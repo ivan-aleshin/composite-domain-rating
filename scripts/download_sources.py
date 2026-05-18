@@ -27,16 +27,20 @@ TRANCO_TOP_1M_URL = "https://tranco-list.eu/top-1m.csv.zip"
 MAJESTIC_MILLION_URL = "https://downloads.majestic.com/majestic_million.csv"
 CLOUDFLARE_RADAR_DATASET_URL = "https://api.cloudflare.com/client/v4/radar/datasets/ranking_top_{bucket}"
 CLOUDFLARE_RADAR_BUCKETS = (200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000)
+OPENPAGERANK_TOP_10M_URL = "https://www.domcop.com/files/top/top10milliondomains.csv.zip"
 LOCAL_CACHE_STALE_MAX_AGE_DAYS = 14
 REQUEST_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
+DEFAULT_PROGRESS_INTERVAL_ROWS = 250_000
 RETRIABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
-IMPLEMENTED_SOURCES = ("tranco", "majestic", "cloudflare")
+DEFAULT_ALL_SOURCES = ("tranco", "majestic", "cloudflare")
+IMPLEMENTED_SOURCES = (*DEFAULT_ALL_SOURCES, "opr")
 NORMALIZED_CSV_NAMES = {
     "tranco": "tranco_domains.csv",
     "majestic": "majestic_domains.csv",
     "cloudflare": "cloudflare_domains.csv",
+    "opr": "opr_domains.csv",
 }
 
 
@@ -321,6 +325,88 @@ def normalize_cloudflare_radar_csv(raw_csv_path: Path, normalized_csv_path: Path
     return row_count, len(best_bucket_by_domain), duplicate_count
 
 
+def _normalized_header(value: str) -> str:
+    return "".join(character for character in value.lower() if character.isalnum())
+
+
+def _row_value(row: dict[str, str], candidates: tuple[str, ...]) -> str | None:
+    values_by_header = {_normalized_header(key): value for key, value in row.items()}
+    for candidate in candidates:
+        value = values_by_header.get(_normalized_header(candidate))
+        if value not in {None, ""}:
+            return value
+    return None
+
+
+def normalize_openpagerank_zip(
+    zip_path: Path,
+    normalized_csv_path: Path,
+    progress_interval: int = DEFAULT_PROGRESS_INTERVAL_ROWS,
+) -> tuple[int, int, int]:
+    row_count = 0
+    duplicate_count = 0
+    seen_registered_domains: set[str] = set()
+
+    with zipfile.ZipFile(zip_path) as archive:
+        csv_members = [name for name in archive.namelist() if name.endswith(".csv")]
+        if not csv_members:
+            raise ValueError(f"No CSV file found in {zip_path}")
+
+        normalized_csv_path.parent.mkdir(parents=True, exist_ok=True)
+        with archive.open(csv_members[0]) as raw_file:
+            text_file = (line.decode("utf-8-sig") for line in raw_file)
+            reader = csv.DictReader(text_file)
+            with normalized_csv_path.open("w", newline="", encoding="utf-8") as file:
+                writer = csv.writer(file)
+                writer.writerow(["registered_domain", "openpagerank_decimal", "openpagerank_integer", "openpagerank_rank"])
+                for row in reader:
+                    row_count += 1
+                    if progress_interval > 0 and row_count % progress_interval == 0:
+                        print(f"Processed {row_count:,} OpenPageRank rows", file=sys.stderr)
+
+                    raw_domain = _row_value(row, ("domain", "Domain"))
+                    registered_domain = normalize_registered_domain(raw_domain)
+                    if registered_domain is None:
+                        continue
+
+                    page_rank_decimal = _float_or_none(
+                        _row_value(row, ("open page rank", "openpagerank", "page rank value", "page_rank_decimal"))
+                    )
+                    page_rank_integer = _int_or_none(
+                        _row_value(row, ("open page rank rounded", "page rank value rounded", "page_rank_integer"))
+                    )
+                    openpagerank_rank = _int_or_none(
+                        _row_value(row, ("rank", "Rank", "global rank", "openpagerank_rank"))
+                    )
+                    if page_rank_decimal is None and page_rank_integer is None and openpagerank_rank is None:
+                        continue
+
+                    if registered_domain in seen_registered_domains:
+                        duplicate_count += 1
+                    else:
+                        seen_registered_domains.add(registered_domain)
+
+                    writer.writerow(
+                        [
+                            registered_domain,
+                            page_rank_decimal if page_rank_decimal is not None else "",
+                            page_rank_integer if page_rank_integer is not None else "",
+                            openpagerank_rank if openpagerank_rank is not None else "",
+                        ]
+                    )
+
+    return row_count, len(seen_registered_domains), duplicate_count
+
+
+def _float_or_none(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def latest_valid_snapshot(source_dir: Path, now: datetime) -> Path | None:
     if not source_dir.exists():
         return None
@@ -574,10 +660,67 @@ def download_cloudflare(
         return result
 
 
+def download_opr(
+    output_root: Path,
+    snapshot_date: date,
+    simulate_missing: bool = False,
+    allow_local_stale_cache: bool = False,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+) -> SourceResult:
+    now = utc_now()
+    source_dir = output_root / "opr"
+    snapshot_dir = source_dir / snapshot_date.isoformat()
+
+    try:
+        if simulate_missing:
+            raise RuntimeError("Simulated missing source: opr")
+
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        raw_zip_path = snapshot_dir / "top10milliondomains.csv.zip"
+        download_file_with_retries(
+            OPENPAGERANK_TOP_10M_URL,
+            raw_zip_path,
+            max_attempts=max_attempts,
+            backoff_seconds=retry_backoff_seconds,
+        )
+
+        normalized_csv_path = snapshot_dir / "opr_domains.csv"
+        row_count, valid_row_count, duplicate_count = normalize_openpagerank_zip(raw_zip_path, normalized_csv_path)
+        result = SourceResult(
+            source="opr",
+            status="fresh",
+            snapshot_date=snapshot_date.isoformat(),
+            downloaded_at=now.isoformat(),
+            list_id=None,
+            file_hash=sha256_file(raw_zip_path),
+            row_count=row_count,
+            valid_row_count=valid_row_count,
+            duplicate_registered_domains=duplicate_count,
+            raw_file_path=str(raw_zip_path),
+            normalized_csv_path=str(normalized_csv_path),
+            error=None,
+        )
+        write_meta(snapshot_dir, result)
+        return result
+    except Exception as error:
+        if allow_local_stale_cache:
+            fallback_dir = latest_valid_snapshot(source_dir, now)
+            if fallback_dir is not None:
+                result = stale_result(fallback_dir, snapshot_date, error, now)
+                write_meta(snapshot_dir, result)
+                return result
+
+        result = missing_source_result("opr", snapshot_date, error, now)
+        write_meta(snapshot_dir, result)
+        return result
+
+
 DOWNLOADERS = {
     "tranco": download_tranco,
     "majestic": download_majestic,
     "cloudflare": download_cloudflare,
+    "opr": download_opr,
 }
 
 
@@ -585,7 +728,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument("--source", choices=IMPLEMENTED_SOURCES, help="Download a single source")
-    source_group.add_argument("--all", action="store_true", help="Download all implemented sources")
+    source_group.add_argument("--all", action="store_true", help="Download all default production sources")
     parser.add_argument("--date", type=date.fromisoformat, default=date.today(), help="Snapshot date, YYYY-MM-DD")
     parser.add_argument("--output-dir", type=Path, default=Path("data/raw"), help="Raw data output directory")
     parser.add_argument(
@@ -622,7 +765,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    sources = list(IMPLEMENTED_SOURCES) if args.all else [args.source]
+    sources = list(DEFAULT_ALL_SOURCES) if args.all else [args.source]
 
     results = []
     for source in sources:
@@ -635,7 +778,7 @@ def main() -> int:
                 max_attempts=args.max_attempts,
                 retry_backoff_seconds=args.retry_backoff_seconds,
             )
-            )
+        )
 
     for result in results:
         print(json.dumps(asdict(result), sort_keys=True))

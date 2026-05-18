@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- OpenPageRank bulk CSV ingestion spike.
 - Stable `data-latest` release asset support for automated consumers that need
   a persistent URL for the newest derived archive.
 - CrUX public BigQuery schema smoke check for the weekly refresh workflow.
