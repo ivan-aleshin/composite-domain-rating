@@ -354,6 +354,69 @@ def write_lineage_json(
     metadata_path.write_text(json.dumps(json_safe(payload), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def github_release_exists(release_tag: str, repo: str | None) -> bool:
+    command = ["gh", "release", "view", release_tag]
+    if repo:
+        command.extend(["--repo", repo])
+    return subprocess.run(
+        command,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode == 0
+
+
+def upsert_github_release(
+    release_tag: str,
+    title: str,
+    notes: str,
+    asset_paths: list[Path],
+    repo: str | None,
+) -> None:
+    if github_release_exists(release_tag, repo):
+        edit_command = [
+            "gh",
+            "release",
+            "edit",
+            release_tag,
+            "--prerelease",
+            "--title",
+            title,
+            "--notes",
+            notes,
+        ]
+        upload_command = [
+            "gh",
+            "release",
+            "upload",
+            release_tag,
+            *(str(path) for path in asset_paths),
+            "--clobber",
+        ]
+        if repo:
+            edit_command.extend(["--repo", repo])
+            upload_command.extend(["--repo", repo])
+        subprocess.run(edit_command, check=True)
+        subprocess.run(upload_command, check=True)
+        return
+
+    create_command = [
+        "gh",
+        "release",
+        "create",
+        release_tag,
+        *(str(path) for path in asset_paths),
+        "--prerelease",
+        "--title",
+        title,
+        "--notes",
+        notes,
+    ]
+    if repo:
+        create_command.extend(["--repo", repo])
+    subprocess.run(create_command, check=True)
+
+
 def create_github_release(
     release_tag: str,
     snapshot_date: date,
@@ -361,22 +424,13 @@ def create_github_release(
     metadata_path: Path,
     repo: str | None,
 ) -> None:
-    command = [
-        "gh",
-        "release",
-        "create",
-        release_tag,
-        str(csv_path),
-        str(metadata_path),
-        "--prerelease",
-        "--title",
-        release_tag,
-        "--notes",
-        f"Derived domain consensus archive for {snapshot_date.isoformat()}.",
-    ]
-    if repo:
-        command.extend(["--repo", repo])
-    subprocess.run(command, check=True)
+    upsert_github_release(
+        release_tag=release_tag,
+        title=release_tag,
+        notes=f"Derived domain consensus archive for {snapshot_date.isoformat()}.",
+        asset_paths=[csv_path, metadata_path],
+        repo=repo,
+    )
 
 
 def latest_asset_paths(output_dir: Path) -> tuple[Path, Path]:
@@ -394,65 +448,18 @@ def update_latest_github_release(
     shutil.copy2(csv_path, latest_csv_path)
     shutil.copy2(metadata_path, latest_metadata_path)
 
-    view_command = ["gh", "release", "view", latest_release_tag]
-    if repo:
-        view_command.extend(["--repo", repo])
-    release_exists = subprocess.run(
-        view_command,
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    ).returncode == 0
-
     notes = (
         f"Mutable pointer to the latest derived domain consensus archive.\n\n"
         f"Current snapshot date: {snapshot_date.isoformat()}.\n\n"
         "For reproducible history, use the immutable weekly `data-YYYY-WNN` releases."
     )
-    if release_exists:
-        edit_command = [
-            "gh",
-            "release",
-            "edit",
-            latest_release_tag,
-            "--prerelease",
-            "--title",
-            latest_release_tag,
-            "--notes",
-            notes,
-        ]
-        upload_command = [
-            "gh",
-            "release",
-            "upload",
-            latest_release_tag,
-            str(latest_csv_path),
-            str(latest_metadata_path),
-            "--clobber",
-        ]
-        if repo:
-            edit_command.extend(["--repo", repo])
-            upload_command.extend(["--repo", repo])
-        subprocess.run(edit_command, check=True)
-        subprocess.run(upload_command, check=True)
-        return
-
-    create_command = [
-        "gh",
-        "release",
-        "create",
-        latest_release_tag,
-        str(latest_csv_path),
-        str(latest_metadata_path),
-        "--prerelease",
-        "--title",
-        latest_release_tag,
-        "--notes",
-        notes,
-    ]
-    if repo:
-        create_command.extend(["--repo", repo])
-    subprocess.run(create_command, check=True)
+    upsert_github_release(
+        release_tag=latest_release_tag,
+        title=latest_release_tag,
+        notes=notes,
+        asset_paths=[latest_csv_path, latest_metadata_path],
+        repo=repo,
+    )
 
 
 def parse_args() -> argparse.Namespace:

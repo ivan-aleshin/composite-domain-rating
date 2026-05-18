@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previous beta archives used the premature default `v1.0.0` label.
 
 ### Changed
+- Made GitHub data release publication rerun-friendly by updating existing
+  prereleases and replacing assets when a data tag already exists.
 - Synchronized source-scope documentation around OpenPageRank as the planned
   fifth ranking source and documented out-of-scope alternatives.
 - Clarified code/data licensing language for derived archives.
