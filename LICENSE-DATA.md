@@ -37,6 +37,7 @@ BigQuery raw tables.
 | Majestic Million | Download CSV and use `RefSubNets` as link breadth signal | Derived score only; raw `RefSubNets` is not published | Majestic page describes the list as Creative Commons Attribution 3.0 Unported |
 | Cloudflare Radar | Download ranking bucket datasets via API | Derived score only; raw buckets are not published | Cloudflare Radar about page states Radar API/direct-download data is CC BY-NC 4.0 |
 | CrUX | Query public BigQuery monthly origin data and use experimental popularity bucket | Derived score only; raw buckets are not published | Chrome for Developers documents CrUX BigQuery data access and schema |
+| OpenPageRank | Planned API source for web graph centrality | Derived score only; raw API values will not be published | Terms and attribution requirements must be reviewed during implementation |
 
 ## Source References
 
@@ -46,6 +47,8 @@ BigQuery raw tables.
 - Cloudflare Radar about/licensing note: https://radar.cloudflare.com/about
 - Cloudflare Radar datasets API: https://developers.cloudflare.com/api/resources/radar/subresources/datasets/
 - CrUX on BigQuery: https://developer.chrome.com/docs/crux/bigquery/
+- OpenPageRank terms: https://www.domcop.com/openpagerank/terms-and-conditions
+- OpenPageRank attribution: https://www.domcop.com/openpagerank/attribution
 
 ## Attribution
 
@@ -58,6 +61,7 @@ underlying sources where appropriate:
 - Majestic Million: Majestic, https://majestic.com/reports/majestic-million
 - Cloudflare Radar: Cloudflare Radar, https://radar.cloudflare.com/
 - CrUX: Chrome UX Report, https://developer.chrome.com/docs/crux/bigquery/
+- OpenPageRank: OpenPageRank, https://www.domcop.com/openpagerank/
 
 ## Commercial Use
 
@@ -75,5 +79,6 @@ New sources should not be added to the public archive process until their access
 method, attribution requirements, and redistribution constraints are documented
 here.
 
-OpenPageRank is currently treated as conditional/deferred because access and
-license interpretation need additional review.
+OpenPageRank is planned as the fifth ranking source. Before it is enabled in
+the public archive, the implementation should document API access, attribution,
+and any terms that affect derived publication.
