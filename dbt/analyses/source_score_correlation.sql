@@ -68,6 +68,54 @@ WITH pair_values AS (
     WHERE
         p_radar IS NOT NULL
         AND p_crux IS NOT NULL
+
+    UNION ALL
+
+    SELECT
+        'tranco' AS source_a,
+        'opr' AS source_b,
+        p_tranco AS source_a_score,
+        p_opr AS source_b_score
+    FROM {{ ref('mart_domain_consensus_score') }}
+    WHERE
+        p_tranco IS NOT NULL
+        AND p_opr IS NOT NULL
+
+    UNION ALL
+
+    SELECT
+        'majestic' AS source_a,
+        'opr' AS source_b,
+        p_majestic AS source_a_score,
+        p_opr AS source_b_score
+    FROM {{ ref('mart_domain_consensus_score') }}
+    WHERE
+        p_majestic IS NOT NULL
+        AND p_opr IS NOT NULL
+
+    UNION ALL
+
+    SELECT
+        'radar' AS source_a,
+        'opr' AS source_b,
+        p_radar AS source_a_score,
+        p_opr AS source_b_score
+    FROM {{ ref('mart_domain_consensus_score') }}
+    WHERE
+        p_radar IS NOT NULL
+        AND p_opr IS NOT NULL
+
+    UNION ALL
+
+    SELECT
+        'crux' AS source_a,
+        'opr' AS source_b,
+        p_crux AS source_a_score,
+        p_opr AS source_b_score
+    FROM {{ ref('mart_domain_consensus_score') }}
+    WHERE
+        p_crux IS NOT NULL
+        AND p_opr IS NOT NULL
 ),
 
 ranked AS (

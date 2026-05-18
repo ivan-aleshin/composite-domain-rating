@@ -7,7 +7,8 @@ WITH domain_scores AS (
             IF(p_tranco IS NOT NULL, [STRUCT('tranco' AS source_name, p_tranco AS score)], []),
             IF(p_majestic IS NOT NULL, [STRUCT('majestic' AS source_name, p_majestic AS score)], []),
             IF(p_radar IS NOT NULL, [STRUCT('radar' AS source_name, p_radar AS score)], []),
-            IF(p_crux IS NOT NULL, [STRUCT('crux' AS source_name, p_crux AS score)], [])
+            IF(p_crux IS NOT NULL, [STRUCT('crux' AS source_name, p_crux AS score)], []),
+            IF(p_opr IS NOT NULL, [STRUCT('opr' AS source_name, p_opr AS score)], [])
         ) AS source_scores
     FROM {{ ref('mart_domain_consensus_score') }}
     WHERE sources_count >= 2

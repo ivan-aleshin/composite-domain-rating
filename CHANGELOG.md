@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Data license notes for current ranking sources and derived archive output.
 - Source diagnostic dbt analyses for coverage, overlap, correlation, sparse-row breakdown,
   source agreement, disagreement outliers, and jackknife influence.
+- OpenPageRank coverage, overlap, correlation, sparse-row breakdown, agreement,
+  disagreement outlier, and jackknife diagnostic analyses.
 - CrUX public BigQuery source integration with staging, percentile scoring,
   mart integration, tests, diagnostics, and documentation updates.
 - Public archive inclusion diagnostics and export filtering to exclude
