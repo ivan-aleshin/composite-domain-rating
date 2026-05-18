@@ -24,7 +24,8 @@ behavior, not just planned architecture.
 
 - add Majestic Million, Cloudflare Radar, and CrUX
 - evaluate the effect of CrUX on coverage and source agreement
-- keep OpenPageRank conditional/deferred unless access and licensing are clear
+- add OpenPageRank as the planned fifth ranking source once API access is
+  configured
 - normalize source-specific ranks and buckets into comparable percentile scores
 - compute equal-weight consensus scores for domains with sufficient coverage
 - expose coverage tiers so sparse domains are not over-interpreted

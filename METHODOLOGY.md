@@ -182,13 +182,21 @@ Raw third-party source data is not published in GitHub Releases.
 
 Potential future additions:
 
+- OpenPageRank as the planned fifth ranking source;
 - risk/reputation feeds as a separate attribute layer;
 - sensitivity analysis across source percentiles;
 - fuller public documentation for v1.0.
 
-OpenPageRank remains a conditional future candidate rather than a v1.0 blocker.
-Access, bulk availability, and license interpretation must be clear before it
-can be included.
+OpenPageRank is planned because it provides a web-graph centrality signal based
+on Common Crawl rather than another traffic or DNS signal. The implementation
+still needs API credentials, attribution handling, and normal source-ingestion
+guardrails before it can be included in the public archive.
+
+Some sources are intentionally out of scope. HTTP Archive and OpenINTEL are too
+large for the project's free-tier BigQuery sandbox design. Wikidata official
+website data is useful entity metadata, but it is not a ranking source. Direct
+Common Crawl graph processing remains a fallback only because OpenPageRank
+packages the same broad signal with lower operational cost.
 
 Source expansion should be guided by diagnostics in `dbt/analyses/`, especially
 coverage distribution, pairwise overlap, sparse-row breakdown, and percentile
@@ -204,3 +212,5 @@ boosted or suppressed by one source relative to the others.
 - Cloudflare Radar datasets API: https://developers.cloudflare.com/api/resources/radar/subresources/datasets/
 - Cloudflare Radar licensing note: https://radar.cloudflare.com/about
 - CrUX on BigQuery: https://developer.chrome.com/docs/crux/bigquery/
+- OpenPageRank API terms: https://www.domcop.com/openpagerank/terms-and-conditions
+- OpenPageRank attribution: https://www.domcop.com/openpagerank/attribution

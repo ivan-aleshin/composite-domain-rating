@@ -134,7 +134,7 @@ security verdict.
 | Majestic Million | Link graph breadth (RefSubNets) | CSV bulk | Implemented |
 | Cloudflare Radar | DNS visibility (popularity bucket) | API | Implemented |
 | CrUX | Real Chrome users (rank bucket) | BigQuery public dataset | Implemented |
-| OpenPageRank | Web graph position | CSV/API | Conditional/deferred |
+| OpenPageRank | Web graph position (Common Crawl harmonic centrality) | API | Planned |
 
 CrUX and Cloudflare Radar contribute bucket-based signals — domains within the
 same bucket are tied. This is documented as a known limitation of those
@@ -160,10 +160,18 @@ sources, not a flaw in aggregation.
 | Source | Reason |
 |---|---|
 | Cisco Umbrella | Already inside Tranco (avoid double-counting) |
+| Alexa Top 1M | Retired in 2022 |
+| Quantcast Top Million | Retired in 2020 |
 | RDAP / WHOIS | Rate limits, privacy redaction |
 | Spamhaus DBL, SURBL | Public DNSBL not permitted at 1M scale |
 | Google Safe Browsing | ToS restrictions for bulk use |
-| crt.sh, HTTP Archive, HSTS Preload, Common Crawl, Wikidata | Deferred to v1.1+ |
+| VirusTotal | Bulk access and redistribution constraints |
+| Similarweb, Ahrefs, Moz | Commercial-only at useful bulk scale |
+| HTTP Archive | Multi-TB public tables are not compatible with the sandbox cost model |
+| OpenINTEL DNS | TB-scale data, incompatible with free-tier sandbox operation |
+| Common Crawl Web Graph direct | Fallback only; OpenPageRank packages the same graph signal operationally |
+| Wikidata official website (P856) | Entity-notability data, not a ranking source |
+| crt.sh, HSTS Preload | Potential future enrichment, not v1.0 ranking sources |
 
 ---
 
