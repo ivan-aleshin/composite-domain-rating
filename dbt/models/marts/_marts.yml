@@ -19,6 +19,8 @@ models:
         description: Cloudflare Radar bucket percentile score, where higher is better.
       - name: p_crux
         description: CrUX popularity bucket percentile score, where higher is better.
+      - name: p_opr
+        description: OpenPageRank percentile score, where higher is better.
       - name: majestic_ref_subnets
         description: Best Majestic RefSubNets value observed for the registered domain.
       - name: majestic_subdomains_seen
@@ -33,6 +35,14 @@ models:
         description: Count of CrUX origins collapsed into the registered domain.
       - name: crux_snapshot_date
         description: CrUX monthly dataset snapshot date for rows with CrUX coverage.
+      - name: openpagerank_decimal
+        description: Best OpenPageRank decimal score observed for the registered domain.
+      - name: openpagerank_integer
+        description: Best OpenPageRank integer score observed for the registered domain.
+      - name: openpagerank_rank
+        description: Best OpenPageRank rank observed for the registered domain.
+      - name: opr_subdomains_seen
+        description: Count of OPR rows collapsed into the registered domain.
       - name: coverage_tier
         description: Coverage tier for implemented ranking sources. Sparse rows keep raw signals but do not receive a consensus score.
         data_tests:

@@ -24,6 +24,7 @@ The project does not publish:
 - raw Majestic `RefSubNets`;
 - raw Cloudflare Radar buckets;
 - raw CrUX popularity buckets;
+- raw OpenPageRank scores or ranks;
 - source-specific percentile columns.
 
 Raw source data is used only inside the private/local processing pipeline and
@@ -37,7 +38,7 @@ BigQuery raw tables.
 | Majestic Million | Download CSV and use `RefSubNets` as link breadth signal | Derived score only; raw `RefSubNets` is not published | Majestic page describes the list as Creative Commons Attribution 3.0 Unported |
 | Cloudflare Radar | Download ranking bucket datasets via API | Derived score only; raw buckets are not published | Cloudflare Radar about page states Radar API/direct-download data is CC BY-NC 4.0 |
 | CrUX | Query public BigQuery monthly origin data and use experimental popularity bucket | Derived score only; raw buckets are not published | Chrome for Developers documents CrUX BigQuery data access and schema |
-| OpenPageRank | Planned API source for web graph centrality | Derived score only; raw API values will not be published | Terms and attribution requirements must be reviewed during implementation |
+| OpenPageRank | Download DomCop top 10M bulk CSV and use OpenPageRank score as web graph signal | Derived score only; raw scores and ranks are not published | Attribution and terms are documented by OpenPageRank/DomCop |
 
 ## Source References
 
@@ -70,7 +71,7 @@ commercial-use dataset by this project.
 
 Commercial or production use of the archive may be constrained by underlying
 source terms, especially Cloudflare Radar's non-commercial licensing note and
-any API terms that apply to source access. Users are responsible for verifying
+source access terms for other providers. Users are responsible for verifying
 that their intended use is compatible with those terms.
 
 ## Future Sources
@@ -79,6 +80,6 @@ New sources should not be added to the public archive process until their access
 method, attribution requirements, and redistribution constraints are documented
 here.
 
-OpenPageRank is planned as the fifth ranking source. Before it is enabled in
-the public archive, the implementation should document API access, attribution,
-and any terms that affect derived publication.
+OpenPageRank is included as a ranking source via its bulk CSV. Future changes
+to the access method, attribution requirements, or terms should be reviewed here
+before changing the public archive process.
