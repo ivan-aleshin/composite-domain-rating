@@ -143,6 +143,21 @@ Cloudflare Radar and CrUX are modeled as ranking buckets rather than exact
 ranks. The pipeline uses the smallest bucket containing a domain as the source
 signal.
 
+OpenPageRank is available as a bulk ingestion spike and is not included in
+`--all` or the production mart yet. The spike downloads DomCop's zipped top
+10M CSV and normalizes it locally:
+
+```bash
+python scripts/download_sources.py \
+  --source opr \
+  --date YYYY-MM-DD \
+  --output-dir data/raw
+```
+
+The OPR bulk file can contain subdomains. The spike normalizes each row to
+`registered_domain`; final duplicate collapsing will be handled in the OPR
+staging model when the source is wired into dbt.
+
 ## Derived archive export
 
 After a successful dbt run, the public mart can be exported as release-ready
