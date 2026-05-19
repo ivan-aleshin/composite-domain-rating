@@ -19,14 +19,14 @@ SOURCE_UPDATE_LOG_TABLE = "source_update_log"
 DEFAULT_MAXIMUM_BYTES_BILLED = 21_474_836_480
 
 STALE_TTL_DAYS = {
-    "tranco": 14,
-    "majestic": 14,
-    "cloudflare": 14,
-    "opr": 90,
-    "crux": 45,
-    "urlhaus": 7,
-    "threatfox": 7,
-    "phishtank": 7,
+    "tranco": 30,
+    "majestic": 30,
+    "cloudflare": 30,
+    "opr": 120,
+    "crux": 75,
+    "urlhaus": 15,
+    "threatfox": 15,
+    "phishtank": 15,
 }
 
 
