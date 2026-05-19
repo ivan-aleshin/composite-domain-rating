@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Sort public CSV archives by consensus score, source coverage, and domain for
   deterministic ranking output.
+- Align the weekly refresh source-health gate with graceful degradation policy:
+  one missing or empty loaded source warns, while two or more fail the run.
+- Increase stale fallback TTLs for ranking sources and set future safety/risk
+  feed TTLs to 15 days.
 - Made GitHub data release publication rerun-friendly by updating existing
   prereleases and replacing assets when a data tag already exists.
 - Synchronized source-scope documentation around OpenPageRank as the fifth

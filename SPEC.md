@@ -229,10 +229,14 @@ The pipeline is designed to survive partial source failures:
 
 - Each source is independently downloaded; one failure does not block others
 - Status tracking per source: `fresh` / `stale` / `missing`
-- Stale data (≤ 14 days) used as fallback when fresh download fails
+- Stale fallback uses per-source TTLs: 30 days for daily ranking sources, 75
+  days for monthly CrUX, 120 days for OpenPageRank, and 15 days for future
+  safety/risk feeds
 - Missing source → empty raw table; downstream models gracefully degrade
 - Source statuses surfaced in lineage JSON of each data release
-- Tiered alerting planned: 1 missing source = warning, 2 or more = failure
+- Tiered workflow health policy: 1 missing/empty source = warning, 2 or more = failure
+- dbt source freshness is advisory in the weekly workflow; source population and
+  freshness issues are surfaced without bypassing the explicit health policy
 
 ---
 
