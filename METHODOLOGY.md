@@ -97,6 +97,34 @@ Interpret `consensus_score` together with `coverage_tier` and
 `ranking_sources_present`. A score based on partial coverage is useful, but it
 is less robust than a score backed by more independent sources.
 
+## Five-Source Diagnostics
+
+A diagnostic run against the `2026-05-18` development mart produced 18.36M
+internal domain rows under methodology `v0.3.0-beta`.
+
+The scored universe contained 878,514 domains:
+
+- 224,743 domains with all five ranking sources;
+- 178,187 domains with four sources;
+- 475,584 domains with three sources.
+
+The broader public archive policy would include 3.34M rows: scored domains plus
+2.46M sparse domains observed by at least two sources. Single-source rows remain
+available in the internal mart for coverage diagnostics, but are excluded from
+the public archive.
+
+The strongest source relationship in this run was Tranco and Cloudflare Radar
+(Spearman correlation around 0.58 on overlapping domains). OpenPageRank showed
+weaker correlations with the existing sources, including CrUX, which supports
+keeping it as a complementary fifth source rather than treating it as redundant.
+
+Jackknife diagnostics showed that CrUX and Majestic have the largest average
+score influence in the current equal-weight formula, while OpenPageRank is
+meaningful but not dominant. Source-agreement diagnostics also show a substantial
+low-agreement tail, even among high-coverage domains. This is expected for a
+consensus score built from different source universes, and it is one reason the
+project keeps source presence and coverage fields in the public output.
+
 ## Public Archive
 
 Weekly data releases contain:
