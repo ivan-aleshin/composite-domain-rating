@@ -9,8 +9,7 @@
 
 **Status**: beta. The first data release was published with Tranco, Majestic
 Million, and Cloudflare Radar. CrUX and OpenPageRank are now integrated into
-the dbt mart and will appear in the next derived data release after these
-changes are merged and the weekly refresh runs.
+the dbt mart and are included in the five-source beta methodology.
 
 ## Overview
 
@@ -23,7 +22,7 @@ normalizes each source into percentile ranks, combines available signals with
 equal weighting, and keeps source coverage explicit so sparse data is not
 presented as false certainty.
 
-For the current beta slice, a domain receives a `consensus_score` when it is
+In the current beta methodology, a domain receives a `consensus_score` when it is
 present in at least three ranking sources. Domains with fewer signals remain in
 the mart for coverage analysis, but their score is `NULL` and their
 `coverage_tier` is `sparse`. Five-source rows use `coverage_tier = full`.
@@ -42,14 +41,14 @@ lineage, CI checks, and public derived CSV archives.
 
 ## Current Scope
 
-The current working slice includes Tranco, Majestic Million, Cloudflare Radar,
+The current beta scope includes Tranco, Majestic Million, Cloudflare Radar,
 CrUX, and OpenPageRank:
 
 - download and normalize Tranco, Majestic, Cloudflare Radar, and OpenPageRank domains
 - read CrUX monthly popularity buckets from the public BigQuery dataset
 - load normalized raw data into BigQuery
 - track source update status in `meta.source_update_log`
-- build the first staging, intermediate, and mart dbt models
+- build staging, intermediate, and mart dbt models
 - validate source direction, coverage semantics, score range, and basic data quality
 - publish only derived output, not raw third-party rankings
 
@@ -99,55 +98,55 @@ dbt deps
 dbt debug
 ```
 
-## Ranking-source walking skeleton
+## Local source refresh
 
 After configuring local BigQuery credentials, implemented ranking sources can be
-run end to end:
+refreshed end to end:
 
 ```bash
 # From the repository root
-python scripts/download_sources.py --source tranco --date YYYY-MM-DD --output-dir data/raw
-python scripts/download_sources.py --source majestic --date YYYY-MM-DD --output-dir data/raw
+export SNAPSHOT_DATE=YYYY-MM-DD
+export GCP_PROJECT_ID=YOUR_GCP_PROJECT_ID
 export CLOUDFLARE_API_TOKEN=...  # or load it from your local .env
-python scripts/download_sources.py --source cloudflare --date YYYY-MM-DD --output-dir data/raw
-python scripts/download_sources.py --source opr --date YYYY-MM-DD --output-dir data/raw
 
-python scripts/load_to_bigquery.py \
-  --source tranco \
-  --date YYYY-MM-DD \
-  --input-dir data/raw \
-  --project YOUR_GCP_PROJECT_ID \
-  --location US
+python scripts/download_sources.py \
+  --all \
+  --date "$SNAPSHOT_DATE" \
+  --output-dir data/raw
 
-python scripts/load_to_bigquery.py \
-  --source majestic \
-  --date YYYY-MM-DD \
-  --input-dir data/raw \
-  --project YOUR_GCP_PROJECT_ID \
-  --location US
-
-python scripts/load_to_bigquery.py \
-  --source cloudflare \
-  --date YYYY-MM-DD \
-  --input-dir data/raw \
-  --project YOUR_GCP_PROJECT_ID \
-  --location US
-
-python scripts/load_to_bigquery.py \
-  --source opr \
-  --date YYYY-MM-DD \
-  --input-dir data/raw \
-  --project YOUR_GCP_PROJECT_ID \
-  --location US
+for source in tranco majestic cloudflare opr; do
+  python scripts/load_to_bigquery.py \
+    --source "$source" \
+    --date "$SNAPSHOT_DATE" \
+    --input-dir data/raw \
+    --project "$GCP_PROJECT_ID" \
+    --location US
+done
 
 cd dbt
-dbt run --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains stg_crux__origins stg_opr__domains mart_domain_consensus_score
-dbt test --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains stg_crux__origins stg_opr__domains mart_domain_consensus_score score_direction
+dbt run \
+  --select +mart_domain_consensus_score \
+  --vars "{\"snapshot_date\": \"$SNAPSHOT_DATE\"}"
+
+dbt test --select \
+  mart_domain_consensus_score \
+  stg_crux__origins \
+  stg_opr__domains \
+  score_direction \
+  sources_count_matches_percentiles \
+  score_in_range \
+  coverage_tier_consistency \
+  source_percentiles_populated \
+  single_snapshot_date_per_mart
 ```
 
 Raw source files under `data/raw/` are local-only and ignored by git. Production
 fallback for stale sources is based on private BigQuery raw tables and
 `meta.source_update_log`, not local cache files.
+
+`CLOUDFLARE_API_TOKEN` is required for Cloudflare Radar downloads.
+OpenPageRank uses DomCop's public zipped top 10M CSV and does not require an API
+key for the current beta ingestion path.
 
 Cloudflare Radar and CrUX are modeled as ranking buckets rather than exact
 ranks. The pipeline uses the smallest bucket containing a domain as the source
@@ -177,7 +176,7 @@ The script writes:
 
 The CSV contains only derived public columns, not raw third-party ranks or
 source-specific percentile columns. The metadata JSON records source statuses
-from `meta.source_update_log`, methodology version, row count, and the planned
+from `meta.source_update_log`, methodology version, row count, and the target
 data release tag (`data-YYYY-WNN`). Local archive files under `data/archive/`
 are ignored by git.
 

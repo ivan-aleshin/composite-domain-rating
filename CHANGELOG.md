@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Methodology version bumped to `v0.3.0-beta` for OpenPageRank scoring.
 
 ### Changed
+- Simplify README local source refresh instructions around `--all`, a load
+  loop, and the current five-source beta workflow.
 - Sort public CSV archives by consensus score, source coverage, and domain for
   deterministic ranking output.
 - Align the weekly refresh source-health gate with graceful degradation policy:
