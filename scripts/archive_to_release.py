@@ -177,6 +177,10 @@ def export_public_csv(
           consensus_score IS NOT NULL
           OR sources_count >= 2
       )
+    ORDER BY
+        consensus_score DESC NULLS LAST,
+        sources_count DESC,
+        registered_domain ASC
     """
     job_config = query_config(
         maximum_bytes_billed=maximum_bytes_billed,
@@ -333,6 +337,11 @@ def write_lineage_json(
         "project": project,
         "mart_table": table_ref(project, marts_dataset, mart_table),
         "public_columns": list(PUBLIC_COLUMNS),
+        "sort_order": [
+            {"column": "consensus_score", "direction": "DESC", "nulls": "LAST"},
+            {"column": "sources_count", "direction": "DESC"},
+            {"column": "registered_domain", "direction": "ASC"},
+        ],
         "archive_policy": {
             "description": "Public archive includes scored rows and sparse rows observed by at least two ranking sources.",
             "included": "consensus_score IS NOT NULL OR sources_count >= 2",

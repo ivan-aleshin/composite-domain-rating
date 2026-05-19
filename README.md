@@ -73,6 +73,9 @@ Each data release includes:
 - `meta_<snapshot_date>.json` — lineage metadata with source statuses and
   methodology version
 
+The public CSV is sorted by `consensus_score` descending, then `sources_count`
+descending, then `registered_domain` ascending for deterministic ties.
+
 The first beta code/methodology release is `v0.1.0-beta`.
 
 For interpretation details and limitations, see [METHODOLOGY.md](./METHODOLOGY.md).

@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Methodology version bumped to `v0.3.0-beta` for OpenPageRank scoring.
 
 ### Changed
+- Sort public CSV archives by consensus score, source coverage, and domain for
+  deterministic ranking output.
 - Made GitHub data release publication rerun-friendly by updating existing
   prereleases and replacing assets when a data tag already exists.
 - Synchronized source-scope documentation around OpenPageRank as the fifth
