@@ -109,7 +109,7 @@ jobs:
 
       - name: Load ranking sources to BigQuery
         run: |
-          for source in tranco majestic cloudflare; do
+          for source in tranco majestic cloudflare opr; do
             python scripts/load_to_bigquery.py \
               --source "$source" \
               --date "$SNAPSHOT_DATE" \
@@ -143,6 +143,7 @@ jobs:
           dbt test --select \
             mart_domain_consensus_score \
             stg_crux__origins \
+            stg_opr__domains \
             score_direction \
             sources_count_matches_percentiles \
             score_in_range \

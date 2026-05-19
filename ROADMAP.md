@@ -22,10 +22,8 @@ behavior, not just planned architecture.
 
 ## 3. Multi-Source Ranking Core
 
-- add Majestic Million, Cloudflare Radar, and CrUX
-- evaluate the effect of CrUX on coverage and source agreement
-- add OpenPageRank as the planned fifth ranking source once API access is
-  configured
+- add Majestic Million, Cloudflare Radar, CrUX, and OpenPageRank
+- evaluate the effect of CrUX and OpenPageRank on coverage and source agreement
 - normalize source-specific ranks and buckets into comparable percentile scores
 - compute equal-weight consensus scores for domains with sufficient coverage
 - expose coverage tiers so sparse domains are not over-interpreted

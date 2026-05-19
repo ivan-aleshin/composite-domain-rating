@@ -7,7 +7,7 @@ does not mean, and how the public archive should be interpreted.
 ## Scope
 
 `composite-domain-rating` builds a derived consensus signal from independent
-public ranking sources. The beta release currently uses four ranking sources:
+public ranking sources. The beta release currently uses five ranking sources:
 
 | Source | Signal used | Direction |
 |---|---|---|
@@ -15,6 +15,7 @@ public ranking sources. The beta release currently uses four ranking sources:
 | Majestic Million | `RefSubNets` | Higher value is better |
 | Cloudflare Radar | Smallest observed ranking bucket | Smaller bucket is better |
 | CrUX | Experimental popularity rank bucket | Smaller bucket is better |
+| OpenPageRank | OpenPageRank decimal score | Higher value is better |
 
 The output is a weekly derived CSV archive. It is not a mirror of raw source
 data, and it does not redistribute raw third-party ranks.
@@ -51,6 +52,7 @@ Examples:
 - Majestic RefSubNets: `ORDER BY ref_subnets DESC`
 - Cloudflare Radar bucket: `ORDER BY rank_bucket ASC`
 - CrUX popularity bucket: `ORDER BY crux_rank_bucket ASC`
+- OpenPageRank decimal score: `ORDER BY openpagerank_decimal DESC`
 
 `PERCENT_RANK()` includes `NULL` values in the window if they are present.
 Therefore, intermediate models filter out null source signals before applying
@@ -62,7 +64,7 @@ bucketed sources such as Cloudflare Radar and CrUX.
 
 ## Consensus Score
 
-The current beta methodology version is `v0.2.0-beta`.
+The current beta methodology version is `v0.3.0-beta`.
 
 The public `consensus_score` is an equal-weight average of available source
 percentiles, scaled to 0-100:
@@ -91,13 +93,9 @@ Coverage tiers describe how many ranking sources support a score:
 | `partial` | 3 | computed |
 | `sparse` | 1-2 | `NULL` |
 
-The beta release has four implemented ranking sources, so the strongest current
-coverage tier is `high`. The `full` tier is reserved for future five-source
-coverage.
-
 Interpret `consensus_score` together with `coverage_tier` and
 `ranking_sources_present`. A score based on partial coverage is useful, but it
-is less robust than a future score backed by more independent sources.
+is less robust than a score backed by more independent sources.
 
 ## Public Archive
 
@@ -166,12 +164,13 @@ Raw third-party source data is not published in GitHub Releases.
 
 ## Current Limitations
 
-- The beta score uses four ranking sources.
+- The beta score uses five ranking sources.
 - Cloudflare Radar and CrUX are bucketed, so many domains intentionally share
   the same source percentile.
 - CrUX is an origin-level dataset that is collapsed to registered domains; this
   preserves domain-level identity but loses origin-level nuance.
 - Majestic measures link graph breadth, not user traffic.
+- OpenPageRank measures web-graph centrality, not user traffic.
 - Tranco is itself an aggregate ranking and is not independent of every ranking
   signal on the web.
 - Scores are not security verdicts, business quality ratings, or financial
@@ -182,21 +181,15 @@ Raw third-party source data is not published in GitHub Releases.
 
 Potential future additions:
 
-- OpenPageRank as the planned fifth ranking source;
 - risk/reputation feeds as a separate attribute layer;
 - sensitivity analysis across source percentiles;
 - fuller public documentation for v1.0.
-
-OpenPageRank is planned because it provides a web-graph centrality signal based
-on Common Crawl rather than another traffic or DNS signal. The implementation
-still needs API credentials, attribution handling, and normal source-ingestion
-guardrails before it can be included in the public archive.
 
 Some sources are intentionally out of scope. HTTP Archive and OpenINTEL are too
 large for the project's free-tier BigQuery sandbox design. Wikidata official
 website data is useful entity metadata, but it is not a ranking source. Direct
 Common Crawl graph processing remains a fallback only because OpenPageRank
-packages the same broad signal with lower operational cost.
+packages a broad web-graph signal with lower operational cost.
 
 Source expansion should be guided by diagnostics in `dbt/analyses/`, especially
 coverage distribution, pairwise overlap, sparse-row breakdown, and percentile
@@ -212,5 +205,5 @@ boosted or suppressed by one source relative to the others.
 - Cloudflare Radar datasets API: https://developers.cloudflare.com/api/resources/radar/subresources/datasets/
 - Cloudflare Radar licensing note: https://radar.cloudflare.com/about
 - CrUX on BigQuery: https://developer.chrome.com/docs/crux/bigquery/
-- OpenPageRank API terms: https://www.domcop.com/openpagerank/terms-and-conditions
+- OpenPageRank terms: https://www.domcop.com/openpagerank/terms-and-conditions
 - OpenPageRank attribution: https://www.domcop.com/openpagerank/attribution

@@ -83,6 +83,18 @@ SOURCE_LOAD_CONFIGS = {
             bigquery.SchemaField("buckets_seen", "INT64", mode="REQUIRED"),
         ),
     ),
+    "opr": SourceLoadConfig(
+        source="opr",
+        raw_table="opr_domains",
+        staging_table="opr_domains__staging",
+        normalized_csv_name="opr_domains.csv",
+        load_schema=(
+            bigquery.SchemaField("registered_domain", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("openpagerank_decimal", "FLOAT64"),
+            bigquery.SchemaField("openpagerank_integer", "INT64"),
+            bigquery.SchemaField("openpagerank_rank", "INT64"),
+        ),
+    ),
 }
 IMPLEMENTED_SOURCES = tuple(SOURCE_LOAD_CONFIGS)
 

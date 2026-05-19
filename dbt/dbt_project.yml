@@ -19,7 +19,7 @@ clean-targets:
 # Project-wide variables
 vars:
   # Methodology version — bump when scoring formula changes
-  methodology_version: 'v0.2.0-beta'
+  methodology_version: 'v0.3.0-beta'
 
   # Minimum number of ranking sources required to produce a consensus score
   # Domains with fewer sources are flagged as 'sparse' with NULL score

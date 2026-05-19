@@ -31,6 +31,7 @@ Different public sources measure different dimensions:
 - **Majestic Million** — link graph breadth (referring subnets)
 - **Cloudflare Radar** — DNS visibility (independent DNS signal)
 - **CrUX** — real Chrome users (real-user presence signal)
+- **OpenPageRank** — web graph centrality (Common Crawl-derived signal)
 
 Each source has different coverage, scale, and update frequency. None alone
 is a reliable single ranking — but their consensus is more informative than
@@ -57,6 +58,7 @@ is the average of available percentile ranks, scaled to 0–100.
 1 - PERCENT_RANK() OVER (ORDER BY ref_subnets DESC)       AS p_majestic
 1 - PERCENT_RANK() OVER (ORDER BY radar_rank_bucket ASC)  AS p_radar
 1 - PERCENT_RANK() OVER (ORDER BY crux_rank_bucket ASC)   AS p_crux
+1 - PERCENT_RANK() OVER (ORDER BY openpagerank_decimal DESC) AS p_opr
 ```
 
 ```
@@ -134,7 +136,7 @@ security verdict.
 | Majestic Million | Link graph breadth (RefSubNets) | CSV bulk | Implemented |
 | Cloudflare Radar | DNS visibility (popularity bucket) | API | Implemented |
 | CrUX | Real Chrome users (rank bucket) | BigQuery public dataset | Implemented |
-| OpenPageRank | Web graph position (Common Crawl harmonic centrality) | API | Planned |
+| OpenPageRank | Web graph position (OpenPageRank score) | CSV bulk | Implemented |
 
 CrUX and Cloudflare Radar contribute bucket-based signals — domains within the
 same bucket are tied. This is documented as a known limitation of those
@@ -192,7 +194,7 @@ risk_sources_count           -- 0–3
 threat_types                 -- array
 last_threat_seen             -- date or NULL
 snapshot_date                -- ISO date
-methodology_version          -- e.g., 'v1.0.0'
+methodology_version          -- e.g., 'v0.3.0-beta'
 ```
 
 **Important:** the public CSV contains **only derived output** — no raw

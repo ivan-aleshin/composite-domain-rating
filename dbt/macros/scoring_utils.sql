@@ -2,7 +2,7 @@
     Returns inverted percentile so that "best" (per direction) gets ~1.0.
 
     direction='asc'  for "lower is better" sources (Tranco rank, Radar bucket, CrUX bucket)
-    direction='desc' for "higher is better" sources (Majestic ref_subnets, OPR rank)
+    direction='desc' for "higher is better" sources (Majestic ref_subnets, OPR score)
 
     Important: PERCENT_RANK() returns 0 for the first row in ORDER BY.
     Without inversion, best domains would get score close to 0 instead of 1.

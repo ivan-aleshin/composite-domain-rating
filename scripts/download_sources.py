@@ -34,8 +34,8 @@ DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
 DEFAULT_PROGRESS_INTERVAL_ROWS = 250_000
 RETRIABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
-DEFAULT_ALL_SOURCES = ("tranco", "majestic", "cloudflare")
-IMPLEMENTED_SOURCES = (*DEFAULT_ALL_SOURCES, "opr")
+DEFAULT_ALL_SOURCES = ("tranco", "majestic", "cloudflare", "opr")
+IMPLEMENTED_SOURCES = DEFAULT_ALL_SOURCES
 NORMALIZED_CSV_NAMES = {
     "tranco": "tranco_domains.csv",
     "majestic": "majestic_domains.csv",
@@ -678,12 +678,17 @@ def download_opr(
 
         snapshot_dir.mkdir(parents=True, exist_ok=True)
         raw_zip_path = snapshot_dir / "top10milliondomains.csv.zip"
-        download_file_with_retries(
-            OPENPAGERANK_TOP_10M_URL,
-            raw_zip_path,
-            max_attempts=max_attempts,
-            backoff_seconds=retry_backoff_seconds,
-        )
+        if raw_zip_path.exists():
+            with zipfile.ZipFile(raw_zip_path) as archive:
+                if not any(name.endswith(".csv") for name in archive.namelist()):
+                    raise ValueError(f"No CSV file found in existing {raw_zip_path}")
+        else:
+            download_file_with_retries(
+                OPENPAGERANK_TOP_10M_URL,
+                raw_zip_path,
+                max_attempts=max_attempts,
+                backoff_seconds=retry_backoff_seconds,
+            )
 
         normalized_csv_path = snapshot_dir / "opr_domains.csv"
         row_count, valid_row_count, duplicate_count = normalize_openpagerank_zip(raw_zip_path, normalized_csv_path)

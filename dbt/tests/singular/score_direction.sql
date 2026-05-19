@@ -34,6 +34,15 @@ crux_direction AS (
     WHERE p_crux IS NOT NULL
 ),
 
+opr_direction AS (
+    SELECT
+        'opr' AS source_name,
+        ARRAY_AGG(p_opr ORDER BY openpagerank_decimal DESC LIMIT 1)[OFFSET(0)] AS best_score,
+        ARRAY_AGG(p_opr ORDER BY openpagerank_decimal ASC LIMIT 1)[OFFSET(0)] AS worst_score
+    FROM {{ ref('mart_domain_consensus_score') }}
+    WHERE p_opr IS NOT NULL
+),
+
 checks AS (
     SELECT * FROM tranco_direction
     UNION ALL
@@ -42,6 +51,8 @@ checks AS (
     SELECT * FROM radar_direction
     UNION ALL
     SELECT * FROM crux_direction
+    UNION ALL
+    SELECT * FROM opr_direction
 )
 
 SELECT *

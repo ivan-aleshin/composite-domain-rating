@@ -101,3 +101,28 @@ sources:
             description: Timestamp when the raw table was created or refreshed.
             data_tests:
               - not_null
+      - name: opr_domains
+        description: OpenPageRank top 10M rows, normalized to registered domains.
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: { count: 60, period: day }
+          error_after: { count: 90, period: day }
+        columns:
+          - name: registered_domain
+            description: Registered domain normalized to ASCII / punycode.
+            data_tests:
+              - not_null
+          - name: openpagerank_decimal
+            description: OpenPageRank decimal score.
+          - name: openpagerank_integer
+            description: OpenPageRank rounded integer score.
+          - name: openpagerank_rank
+            description: OpenPageRank row rank from the downloaded top 10M file.
+          - name: snapshot_date
+            description: Source snapshot date loaded by the ingestion script.
+            data_tests:
+              - not_null
+          - name: ingested_at
+            description: Timestamp when the raw table was created or refreshed.
+            data_tests:
+              - not_null

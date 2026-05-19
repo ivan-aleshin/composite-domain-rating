@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- OpenPageRank bulk CSV ingestion spike.
+- OpenPageRank bulk CSV ingestion, BigQuery loading, staging/intermediate
+  models, mart integration, and tests as the fifth ranking source.
 - Stable `data-latest` release asset support for automated consumers that need
   a persistent URL for the newest derived archive.
 - CrUX public BigQuery schema smoke check for the weekly refresh workflow.
@@ -22,12 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one-source-only rows while keeping them in the internal mart.
 - Methodology version corrected to `v0.2.0-beta` for the CrUX scoring change;
   previous beta archives used the premature default `v1.0.0` label.
+- Methodology version bumped to `v0.3.0-beta` for OpenPageRank scoring.
 
 ### Changed
 - Made GitHub data release publication rerun-friendly by updating existing
   prereleases and replacing assets when a data tag already exists.
-- Synchronized source-scope documentation around OpenPageRank as the planned
-  fifth ranking source and documented out-of-scope alternatives.
+- Synchronized source-scope documentation around OpenPageRank as the fifth
+  ranking source and documented out-of-scope alternatives.
 - Clarified code/data licensing language for derived archives.
 
 ## [0.1.0-beta] - 2026-05-16

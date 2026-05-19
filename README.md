@@ -8,8 +8,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Status**: beta. The first data release was published with Tranco, Majestic
-Million, and Cloudflare Radar. CrUX is now integrated as a fourth dbt source and
-will appear in the next derived data release after this change is merged.
+Million, and Cloudflare Radar. CrUX and OpenPageRank are now integrated into
+the dbt mart and will appear in the next derived data release after these
+changes are merged and the weekly refresh runs.
 
 ## Overview
 
@@ -25,9 +26,7 @@ presented as false certainty.
 For the current beta slice, a domain receives a `consensus_score` when it is
 present in at least three ranking sources. Domains with fewer signals remain in
 the mart for coverage analysis, but their score is `NULL` and their
-`coverage_tier` is `sparse`. Four-source rows use `coverage_tier = high`,
-matching the v1.0 tier taxonomy where `full` is reserved for five-source
-coverage.
+`coverage_tier` is `sparse`. Five-source rows use `coverage_tier = full`.
 
 The implementation uses dbt Core on BigQuery, with ingestion scripts, source
 lineage, CI checks, and public derived CSV archives.
@@ -44,9 +43,9 @@ lineage, CI checks, and public derived CSV archives.
 ## Current Scope
 
 The current working slice includes Tranco, Majestic Million, Cloudflare Radar,
-and CrUX:
+CrUX, and OpenPageRank:
 
-- download and normalize Tranco, Majestic, and Cloudflare Radar domains
+- download and normalize Tranco, Majestic, Cloudflare Radar, and OpenPageRank domains
 - read CrUX monthly popularity buckets from the public BigQuery dataset
 - load normalized raw data into BigQuery
 - track source update status in `meta.source_update_log`
@@ -108,6 +107,7 @@ python scripts/download_sources.py --source tranco --date YYYY-MM-DD --output-di
 python scripts/download_sources.py --source majestic --date YYYY-MM-DD --output-dir data/raw
 export CLOUDFLARE_API_TOKEN=...  # or load it from your local .env
 python scripts/download_sources.py --source cloudflare --date YYYY-MM-DD --output-dir data/raw
+python scripts/download_sources.py --source opr --date YYYY-MM-DD --output-dir data/raw
 
 python scripts/load_to_bigquery.py \
   --source tranco \
@@ -130,9 +130,16 @@ python scripts/load_to_bigquery.py \
   --project YOUR_GCP_PROJECT_ID \
   --location US
 
+python scripts/load_to_bigquery.py \
+  --source opr \
+  --date YYYY-MM-DD \
+  --input-dir data/raw \
+  --project YOUR_GCP_PROJECT_ID \
+  --location US
+
 cd dbt
-dbt run --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains stg_crux__origins mart_domain_consensus_score
-dbt test --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains stg_crux__origins mart_domain_consensus_score score_direction
+dbt run --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains stg_crux__origins stg_opr__domains mart_domain_consensus_score
+dbt test --select stg_tranco__domains stg_majestic__domains stg_cloudflare__domains stg_crux__origins stg_opr__domains mart_domain_consensus_score score_direction
 ```
 
 Raw source files under `data/raw/` are local-only and ignored by git. Production
@@ -143,20 +150,9 @@ Cloudflare Radar and CrUX are modeled as ranking buckets rather than exact
 ranks. The pipeline uses the smallest bucket containing a domain as the source
 signal.
 
-OpenPageRank is available as a bulk ingestion spike and is not included in
-`--all` or the production mart yet. The spike downloads DomCop's zipped top
-10M CSV and normalizes it locally:
-
-```bash
-python scripts/download_sources.py \
-  --source opr \
-  --date YYYY-MM-DD \
-  --output-dir data/raw
-```
-
-The OPR bulk file can contain subdomains. The spike normalizes each row to
-`registered_domain`; final duplicate collapsing will be handled in the OPR
-staging model when the source is wired into dbt.
+OpenPageRank is downloaded from DomCop's zipped top 10M CSV. The file can
+contain subdomains, so ingestion normalizes each row to `registered_domain` and
+the OPR staging model collapses duplicate registered domains before scoring.
 
 ## Derived archive export
 

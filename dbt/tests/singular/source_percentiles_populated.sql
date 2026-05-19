@@ -27,3 +27,11 @@ SELECT
     'crux' AS source_name
 FROM {{ ref('mart_domain_consensus_score') }}
 WHERE crux_rank_bucket IS NOT NULL AND p_crux IS NULL
+
+UNION ALL
+
+SELECT
+    registered_domain,
+    'opr' AS source_name
+FROM {{ ref('mart_domain_consensus_score') }}
+WHERE openpagerank_decimal IS NOT NULL AND p_opr IS NULL

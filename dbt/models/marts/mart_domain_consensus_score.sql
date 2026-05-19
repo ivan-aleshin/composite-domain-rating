@@ -45,6 +45,18 @@ crux AS (
     FROM {{ ref('int_domains_crux') }}
 ),
 
+opr AS (
+    SELECT
+        registered_domain,
+        openpagerank_decimal,
+        openpagerank_integer,
+        openpagerank_rank,
+        subdomains_seen AS opr_subdomains_seen,
+        p_opr,
+        snapshot_date
+    FROM {{ ref('int_domains_opr') }}
+),
+
 domains AS (
     SELECT registered_domain
     FROM tranco
@@ -57,6 +69,9 @@ domains AS (
     UNION DISTINCT
     SELECT registered_domain
     FROM crux
+    UNION DISTINCT
+    SELECT registered_domain
+    FROM opr
 ),
 
 enriched AS (
@@ -74,11 +89,17 @@ enriched AS (
         crux.crux_origins_seen,
         crux.p_crux,
         crux.crux_snapshot_date,
+        opr.openpagerank_decimal,
+        opr.openpagerank_integer,
+        opr.openpagerank_rank,
+        opr.opr_subdomains_seen,
+        opr.p_opr,
         CAST('{{ var("snapshot_date", run_started_at.strftime("%Y-%m-%d")) }}' AS DATE) AS snapshot_date,
         IF(tranco.p_tranco IS NOT NULL, 1, 0)
         + IF(majestic.p_majestic IS NOT NULL, 1, 0)
         + IF(radar.p_radar IS NOT NULL, 1, 0)
-        + IF(crux.p_crux IS NOT NULL, 1, 0) AS sources_count
+        + IF(crux.p_crux IS NOT NULL, 1, 0)
+        + IF(opr.p_opr IS NOT NULL, 1, 0) AS sources_count
     FROM domains
     LEFT JOIN tranco
         ON domains.registered_domain = tranco.registered_domain
@@ -88,6 +109,8 @@ enriched AS (
         ON domains.registered_domain = radar.registered_domain
     LEFT JOIN crux
         ON domains.registered_domain = crux.registered_domain
+    LEFT JOIN opr
+        ON domains.registered_domain = opr.registered_domain
 ),
 
 scored AS (
@@ -100,6 +123,7 @@ scored AS (
                     + COALESCE(p_majestic, 0)
                     + COALESCE(p_radar, 0)
                     + COALESCE(p_crux, 0)
+                    + COALESCE(p_opr, 0)
                 ) / sources_count * 100
         END AS consensus_score,
         CASE
@@ -125,6 +149,11 @@ SELECT
     crux_origins_seen,
     p_crux,
     crux_snapshot_date,
+    openpagerank_decimal,
+    openpagerank_integer,
+    openpagerank_rank,
+    opr_subdomains_seen,
+    p_opr,
     consensus_score,
     coverage_tier,
     sources_count,
@@ -133,7 +162,8 @@ SELECT
             IF(p_tranco IS NOT NULL, ['tranco'], []),
             IF(p_majestic IS NOT NULL, ['majestic'], []),
             IF(p_radar IS NOT NULL, ['radar'], []),
-            IF(p_crux IS NOT NULL, ['crux'], [])
+            IF(p_crux IS NOT NULL, ['crux'], []),
+            IF(p_opr IS NOT NULL, ['opr'], [])
         ),
         ','
     ) AS ranking_sources_present,
@@ -144,5 +174,5 @@ SELECT
     ARRAY<STRING>[] AS threat_types,
     CAST(NULL AS DATE) AS last_threat_seen,
     snapshot_date,
-    '{{ var("methodology_version", "v0.2.0-beta") }}' AS methodology_version
+    '{{ var("methodology_version", "v0.3.0-beta") }}' AS methodology_version
 FROM scored
