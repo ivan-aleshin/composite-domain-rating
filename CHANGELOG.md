@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source agreement, disagreement outliers, and jackknife influence.
 - OpenPageRank coverage, overlap, correlation, sparse-row breakdown, agreement,
   disagreement outlier, and jackknife diagnostic analyses.
+- Five-source diagnostic methodology summary based on the `2026-05-18`
+  development mart.
 - CrUX public BigQuery source integration with staging, percentile scoring,
   mart integration, tests, diagnostics, and documentation updates.
 - Public archive inclusion diagnostics and export filtering to exclude
