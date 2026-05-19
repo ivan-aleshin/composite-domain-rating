@@ -7,7 +7,8 @@ WITH sparse_rows AS (
                 IF(p_tranco IS NULL, ['tranco'], []),
                 IF(p_majestic IS NULL, ['majestic'], []),
                 IF(p_radar IS NULL, ['radar'], []),
-                IF(p_crux IS NULL, ['crux'], [])
+                IF(p_crux IS NULL, ['crux'], []),
+                IF(p_opr IS NULL, ['opr'], [])
             ),
             ','
         ) AS missing_sources
