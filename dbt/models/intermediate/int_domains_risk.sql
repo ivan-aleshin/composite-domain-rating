@@ -10,6 +10,26 @@ WITH urlhaus AS (
     FROM {{ ref('stg_urlhaus__domains') }}
 ),
 
+threatfox AS (
+    SELECT
+        registered_domain,
+        'threatfox' AS source_name,
+        threat_type,
+        first_seen,
+        last_seen,
+        threat_count,
+        observed_hosts_count
+    FROM {{ ref('stg_threatfox__domains') }}
+),
+
+risk_observations AS (
+    SELECT *
+    FROM urlhaus
+    UNION ALL
+    SELECT *
+    FROM threatfox
+),
+
 aggregated AS (
     SELECT
         registered_domain,
@@ -19,7 +39,7 @@ aggregated AS (
         MAX(last_seen) AS last_threat_seen,
         SUM(threat_count) AS threat_count,
         SUM(observed_hosts_count) AS observed_hosts_count
-    FROM urlhaus
+    FROM risk_observations
     WHERE registered_domain IS NOT NULL
     GROUP BY registered_domain
 )

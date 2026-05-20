@@ -49,6 +49,7 @@ into `consensus_score`.
 | Source | Current use | Public archive treatment | Notes |
 |---|---|---|---|
 | URLhaus | Download recent malware URL CSV and aggregate observations to registered domains | Raw URLs are not published; future public fields should use cautious observation language | URLhaus community API is free under abuse.ch fair use principles; commercial use may require enhanced/commercial API access |
+| ThreatFox | Download authenticated full IOC CSV export and aggregate domain/URL IOCs to registered domains | Raw IOCs are not published; public fields use cautious observation language | ThreatFox community API and exports are free under abuse.ch fair use principles; commercial use may require enhanced/commercial API access |
 
 ## Source References
 
@@ -61,6 +62,7 @@ into `consensus_score`.
 - OpenPageRank terms: https://www.domcop.com/openpagerank/terms-and-conditions
 - OpenPageRank attribution: https://www.domcop.com/openpagerank/attribution
 - URLhaus API and exports: https://urlhaus.abuse.ch/api/
+- ThreatFox API and exports: https://threatfox.abuse.ch/api/
 - abuse.ch fair use principles: https://abuse.ch/fair-use/
 
 ## Attribution
@@ -76,6 +78,7 @@ underlying sources where appropriate:
 - CrUX: Chrome UX Report, https://developer.chrome.com/docs/crux/bigquery/
 - OpenPageRank: OpenPageRank, https://www.domcop.com/openpagerank/
 - URLhaus: abuse.ch URLhaus, https://urlhaus.abuse.ch/
+- ThreatFox: abuse.ch ThreatFox, https://threatfox.abuse.ch/
 
 ## Commercial Use
 

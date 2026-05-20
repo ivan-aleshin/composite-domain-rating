@@ -124,15 +124,19 @@ jobs:
           done
 
       - name: Download risk sources
+        env:
+          THREATFOX_AUTH_KEY: ${{ secrets.THREATFOX_AUTH_KEY }}
         run: |
-          python scripts/download_sources.py \
-            --source urlhaus \
-            --date "$SNAPSHOT_DATE" \
-            --output-dir data/raw
+          for source in urlhaus threatfox; do
+            python scripts/download_sources.py \
+              --source "$source" \
+              --date "$SNAPSHOT_DATE" \
+              --output-dir data/raw
+          done
 
       - name: Load risk sources to BigQuery
         run: |
-          for source in urlhaus; do
+          for source in urlhaus threatfox; do
             python scripts/load_to_bigquery.py \
               --source "$source" \
               --date "$SNAPSHOT_DATE" \

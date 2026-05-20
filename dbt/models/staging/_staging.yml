@@ -160,3 +160,44 @@ models:
         description: Raw ingestion timestamp.
         data_tests:
           - not_null
+
+  - name: stg_threatfox__domains
+    description: ThreatFox IOC observations collapsed to registered domain and threat type.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - registered_domain
+            - threat_type
+    columns:
+      - name: registered_domain
+        description: Registered domain derived from a ThreatFox domain or URL IOC.
+        data_tests:
+          - not_null
+      - name: threat_type
+        description: ThreatFox threat category observed under this registered domain.
+        data_tests:
+          - not_null
+      - name: first_seen
+        description: Earliest ThreatFox observation date for this domain and threat type.
+        data_tests:
+          - not_null
+      - name: last_seen
+        description: Latest ThreatFox observation date for this domain and threat type.
+        data_tests:
+          - not_null
+      - name: threat_count
+        description: Count of IOC observations collapsed into this domain and threat type.
+        data_tests:
+          - not_null
+      - name: observed_hosts_count
+        description: Count of distinct IOC hosts collapsed into this domain and threat type.
+        data_tests:
+          - not_null
+      - name: snapshot_date
+        description: Source snapshot date.
+        data_tests:
+          - not_null
+      - name: ingested_at
+        description: Raw ingestion timestamp.
+        data_tests:
+          - not_null

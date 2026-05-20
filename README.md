@@ -196,6 +196,7 @@ The workflow expects these repository secrets:
 
 - `GCP_SA_KEY` — service account JSON for BigQuery jobs
 - `CLOUDFLARE_API_TOKEN` — Cloudflare Radar API token
+- `THREATFOX_AUTH_KEY` — ThreatFox export auth key, required on the risk-layer branch
 
 ## Disclaimer
 
