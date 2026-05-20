@@ -30,6 +30,7 @@ CLOUDFLARE_RADAR_DATASET_URL = "https://api.cloudflare.com/client/v4/radar/datas
 CLOUDFLARE_RADAR_BUCKETS = (200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000)
 OPENPAGERANK_TOP_10M_URL = "https://www.domcop.com/files/top/top10milliondomains.csv.zip"
 URLHAUS_RECENT_CSV_URL = "https://urlhaus.abuse.ch/downloads/csv_recent/"
+THREATFOX_FULL_CSV_ZIP_URL = "https://threatfox-api.abuse.ch/v2/files/exports/{auth_key}/full.csv.zip"
 LOCAL_CACHE_STALE_MAX_AGE_DAYS = 14
 REQUEST_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_ATTEMPTS = 3
@@ -37,7 +38,7 @@ DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
 DEFAULT_PROGRESS_INTERVAL_ROWS = 250_000
 RETRIABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
 DEFAULT_ALL_SOURCES = ("tranco", "majestic", "cloudflare", "opr")
-RISK_SOURCES = ("urlhaus",)
+RISK_SOURCES = ("urlhaus", "threatfox")
 IMPLEMENTED_SOURCES = DEFAULT_ALL_SOURCES + RISK_SOURCES
 NORMALIZED_CSV_NAMES = {
     "tranco": "tranco_domains.csv",
@@ -45,6 +46,7 @@ NORMALIZED_CSV_NAMES = {
     "cloudflare": "cloudflare_domains.csv",
     "opr": "opr_domains.csv",
     "urlhaus": "urlhaus_domains.csv",
+    "threatfox": "threatfox_domains.csv",
 }
 
 
@@ -335,7 +337,7 @@ def _normalized_header(value: str) -> str:
 
 
 def _row_value(row: dict[str, str], candidates: tuple[str, ...]) -> str | None:
-    values_by_header = {_normalized_header(key): value for key, value in row.items()}
+    values_by_header = {_normalized_header(key): value for key, value in row.items() if key is not None}
     for candidate in candidates:
         value = values_by_header.get(_normalized_header(candidate))
         if value not in {None, ""}:
@@ -496,6 +498,124 @@ def normalize_urlhaus_csv(raw_csv_path: Path, normalized_csv_path: Path) -> tupl
         current["last_seen"] = max(current["last_seen"], last_seen or first_seen)
         current["threat_count"] += 1
         current["observed_hosts"].add(observed_host.lower())
+
+    normalized_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with normalized_csv_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(
+            [
+                "registered_domain",
+                "threat_type",
+                "first_seen",
+                "last_seen",
+                "threat_count",
+                "observed_hosts_count",
+            ]
+        )
+        for (registered_domain, threat_type), payload in sorted(aggregates.items()):
+            writer.writerow(
+                [
+                    registered_domain,
+                    threat_type,
+                    payload["first_seen"].isoformat(),
+                    payload["last_seen"].isoformat(),
+                    payload["threat_count"],
+                    len(payload["observed_hosts"]),
+                ]
+            )
+
+    valid_observations_count = sum(int(payload["threat_count"]) for payload in aggregates.values())
+    duplicate_count = max(valid_observations_count - len(aggregates), 0)
+    return row_count, len(aggregates), duplicate_count, skipped_count
+
+
+def normalize_threatfox_zip(zip_path: Path, normalized_csv_path: Path) -> tuple[int, int, int, int]:
+    row_count = 0
+    skipped_count = 0
+    aggregates: dict[tuple[str, str], dict[str, Any]] = {}
+
+    with zipfile.ZipFile(zip_path) as archive:
+        csv_members = [name for name in archive.namelist() if name.endswith(".csv")]
+        if not csv_members:
+            raise ValueError(f"No CSV file found in {zip_path}")
+
+        with archive.open(csv_members[0]) as raw_file:
+            text_file = (line.decode("utf-8-sig") for line in raw_file)
+            filtered_lines = []
+            has_header = False
+            for line in text_file:
+                if not line.strip():
+                    continue
+                candidate = line.lstrip("#").strip() if line.startswith("#") else line.strip()
+                if not filtered_lines:
+                    normalized_candidate = _normalized_header(candidate)
+                    has_header = "ioc" in normalized_candidate and "ioctype" in normalized_candidate
+                filtered_lines.append(candidate)
+
+            if has_header:
+                reader = csv.DictReader(filtered_lines, restkey="_extra", skipinitialspace=True)
+            else:
+                reader = csv.DictReader(
+                    filtered_lines,
+                    fieldnames=[
+                        "first_seen_utc",
+                        "ioc_id",
+                        "ioc_value",
+                        "ioc_type",
+                        "threat_type",
+                        "malware",
+                        "malware_alias",
+                        "malware_printable",
+                        "last_seen_utc",
+                        "confidence_level",
+                        "reference",
+                        "reporter",
+                        "tags",
+                        "anonymous",
+                    ],
+                    restkey="_extra",
+                    skipinitialspace=True,
+                )
+            for row in reader:
+                row_count += 1
+                ioc_type = (_row_value(row, ("ioc_type", "indicator_type", "type")) or "").strip().lower()
+                raw_ioc = _row_value(row, ("ioc", "ioc_value", "indicator", "value"))
+                if ioc_type == "url":
+                    observed_host = _host_from_url(raw_ioc)
+                elif ioc_type in {"domain", "hostname"}:
+                    observed_host = raw_ioc.strip() if raw_ioc else None
+                else:
+                    skipped_count += 1
+                    continue
+
+                registered_domain = normalize_registered_domain(observed_host)
+                if registered_domain is None or observed_host is None:
+                    skipped_count += 1
+                    continue
+
+                threat_type = (_row_value(row, ("threat_type", "threat")) or "malware").strip().lower()
+                first_seen = _date_or_none(
+                    _row_value(row, ("first_seen", "first_seen_utc", "date_added", "dateadded"))
+                )
+                last_seen = _date_or_none(_row_value(row, ("last_seen", "last_seen_utc"))) or first_seen
+                if first_seen is None:
+                    skipped_count += 1
+                    continue
+
+                key = (registered_domain, threat_type)
+                current = aggregates.setdefault(
+                    key,
+                    {
+                        "first_seen": first_seen,
+                        "last_seen": last_seen,
+                        "threat_count": 0,
+                        "observed_hosts": set(),
+                    },
+                )
+                current["first_seen"] = min(current["first_seen"], first_seen)
+                current["last_seen"] = max(current["last_seen"], last_seen or first_seen)
+                current["threat_count"] += 1
+                current["observed_hosts"].add(observed_host.lower())
 
     normalized_csv_path.parent.mkdir(parents=True, exist_ok=True)
     with normalized_csv_path.open("w", newline="", encoding="utf-8") as file:
@@ -903,12 +1023,82 @@ def download_urlhaus(
         return result
 
 
+def download_threatfox(
+    output_root: Path,
+    snapshot_date: date,
+    simulate_missing: bool = False,
+    allow_local_stale_cache: bool = False,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+) -> SourceResult:
+    now = utc_now()
+    source_dir = output_root / "threatfox"
+    snapshot_dir = source_dir / snapshot_date.isoformat()
+    auth_key: str | None = None
+
+    try:
+        if simulate_missing:
+            raise RuntimeError("Simulated missing source: threatfox")
+
+        auth_key = os.environ.get("THREATFOX_AUTH_KEY")
+        if not auth_key:
+            raise RuntimeError("THREATFOX_AUTH_KEY is required for ThreatFox bulk downloads")
+
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        raw_zip_path = snapshot_dir / "threatfox_full.csv.zip"
+        download_file_with_retries(
+            THREATFOX_FULL_CSV_ZIP_URL.format(auth_key=auth_key),
+            raw_zip_path,
+            max_attempts=max_attempts,
+            backoff_seconds=retry_backoff_seconds,
+        )
+
+        normalized_csv_path = snapshot_dir / "threatfox_domains.csv"
+        row_count, valid_row_count, duplicate_count, skipped_rows = normalize_threatfox_zip(
+            raw_zip_path,
+            normalized_csv_path,
+        )
+        result = SourceResult(
+            source="threatfox",
+            status="fresh",
+            snapshot_date=snapshot_date.isoformat(),
+            downloaded_at=now.isoformat(),
+            list_id=None,
+            file_hash=sha256_file(raw_zip_path),
+            row_count=row_count,
+            valid_row_count=valid_row_count,
+            duplicate_registered_domains=duplicate_count,
+            raw_file_path=str(raw_zip_path),
+            normalized_csv_path=str(normalized_csv_path),
+            error=None,
+            skipped_rows=skipped_rows,
+        )
+        write_meta(snapshot_dir, result)
+        return result
+    except Exception as error:
+        safe_error: Exception = error
+        if auth_key:
+            safe_error = RuntimeError(str(error).replace(auth_key, "<redacted>"))
+
+        if allow_local_stale_cache:
+            fallback_dir = latest_valid_snapshot(source_dir, now)
+            if fallback_dir is not None:
+                result = stale_result(fallback_dir, snapshot_date, safe_error, now)
+                write_meta(snapshot_dir, result)
+                return result
+
+        result = missing_source_result("threatfox", snapshot_date, safe_error, now)
+        write_meta(snapshot_dir, result)
+        return result
+
+
 DOWNLOADERS = {
     "tranco": download_tranco,
     "majestic": download_majestic,
     "cloudflare": download_cloudflare,
     "opr": download_opr,
     "urlhaus": download_urlhaus,
+    "threatfox": download_threatfox,
 }
 
 

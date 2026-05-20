@@ -52,6 +52,10 @@ language such as `security_flags_observed`, `risk_sources_count`,
 `threat_types`, and `last_threat_seen`, and avoid verdict-style language such
 as `is_malicious`.
 
+The current risk-layer branch uses URLhaus malware URL observations and
+ThreatFox domain/URL IOC observations. Both are collapsed to registered domains
+before they are joined to the ranking mart.
+
 ## Source Scoring
 
 Each source is converted to a percentile-like score between 0 and 1 where higher
@@ -254,3 +258,4 @@ boosted or suppressed by one source relative to the others.
 - OpenPageRank terms: https://www.domcop.com/openpagerank/terms-and-conditions
 - OpenPageRank attribution: https://www.domcop.com/openpagerank/attribution
 - URLhaus API and exports: https://urlhaus.abuse.ch/api/
+- ThreatFox API and exports: https://threatfox.abuse.ch/api/
