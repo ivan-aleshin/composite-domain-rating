@@ -11,6 +11,7 @@ import shutil
 import sys
 import tempfile
 import time
+from urllib.parse import urlsplit
 import zipfile
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -28,6 +29,7 @@ MAJESTIC_MILLION_URL = "https://downloads.majestic.com/majestic_million.csv"
 CLOUDFLARE_RADAR_DATASET_URL = "https://api.cloudflare.com/client/v4/radar/datasets/ranking_top_{bucket}"
 CLOUDFLARE_RADAR_BUCKETS = (200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000)
 OPENPAGERANK_TOP_10M_URL = "https://www.domcop.com/files/top/top10milliondomains.csv.zip"
+URLHAUS_RECENT_CSV_URL = "https://urlhaus.abuse.ch/downloads/csv_recent/"
 LOCAL_CACHE_STALE_MAX_AGE_DAYS = 14
 REQUEST_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_ATTEMPTS = 3
@@ -35,12 +37,14 @@ DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
 DEFAULT_PROGRESS_INTERVAL_ROWS = 250_000
 RETRIABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
 DEFAULT_ALL_SOURCES = ("tranco", "majestic", "cloudflare", "opr")
-IMPLEMENTED_SOURCES = DEFAULT_ALL_SOURCES
+RISK_SOURCES = ("urlhaus",)
+IMPLEMENTED_SOURCES = DEFAULT_ALL_SOURCES + RISK_SOURCES
 NORMALIZED_CSV_NAMES = {
     "tranco": "tranco_domains.csv",
     "majestic": "majestic_domains.csv",
     "cloudflare": "cloudflare_domains.csv",
     "opr": "opr_domains.csv",
+    "urlhaus": "urlhaus_domains.csv",
 }
 
 
@@ -58,6 +62,7 @@ class SourceResult:
     raw_file_path: str | None
     normalized_csv_path: str | None
     error: str | None
+    skipped_rows: int = 0
 
 
 def utc_now() -> datetime:
@@ -407,6 +412,121 @@ def _float_or_none(value: Any) -> float | None:
         return None
 
 
+def _date_or_none(value: str | None) -> date | None:
+    if value in {None, "", "None", "null"}:
+        return None
+
+    normalized = value.strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized).date()
+    except ValueError:
+        pass
+
+    try:
+        return date.fromisoformat(normalized[:10])
+    except ValueError:
+        return None
+
+
+def _host_from_url(raw_url: str | None) -> str | None:
+    if raw_url is None:
+        return None
+
+    candidate = raw_url.strip()
+    if not candidate:
+        return None
+
+    parsed = urlsplit(candidate)
+    if not parsed.scheme:
+        parsed = urlsplit(f"http://{candidate}")
+
+    host = parsed.hostname
+    if not host or host.lower().endswith(".onion"):
+        return None
+    return host
+
+
+def _csv_dict_reader_skipping_comments(raw_csv_path: Path) -> csv.DictReader:
+    filtered_lines = []
+    for line in raw_csv_path.read_text(encoding="utf-8-sig").splitlines():
+        if not line:
+            continue
+        if line.startswith("#"):
+            candidate = line.lstrip("#").strip()
+            if candidate.startswith("id,dateadded,url,"):
+                filtered_lines.append(candidate)
+            continue
+        filtered_lines.append(line)
+
+    return csv.DictReader(filtered_lines)
+
+
+def normalize_urlhaus_csv(raw_csv_path: Path, normalized_csv_path: Path) -> tuple[int, int, int, int]:
+    row_count = 0
+    skipped_count = 0
+    aggregates: dict[tuple[str, str], dict[str, Any]] = {}
+
+    for row in _csv_dict_reader_skipping_comments(raw_csv_path):
+        row_count += 1
+        raw_url = _row_value(row, ("url", "URL"))
+        observed_host = _host_from_url(raw_url)
+        registered_domain = normalize_registered_domain(observed_host)
+        if registered_domain is None or observed_host is None:
+            skipped_count += 1
+            continue
+
+        threat_type = (_row_value(row, ("threat", "threat_type")) or "malware").strip().lower()
+        first_seen = _date_or_none(_row_value(row, ("dateadded", "date_added", "first_seen")))
+        last_seen = _date_or_none(_row_value(row, ("last_online", "last_seen"))) or first_seen
+        if first_seen is None:
+            skipped_count += 1
+            continue
+
+        key = (registered_domain, threat_type)
+        current = aggregates.setdefault(
+            key,
+            {
+                "first_seen": first_seen,
+                "last_seen": last_seen,
+                "threat_count": 0,
+                "observed_hosts": set(),
+            },
+        )
+        current["first_seen"] = min(current["first_seen"], first_seen)
+        current["last_seen"] = max(current["last_seen"], last_seen or first_seen)
+        current["threat_count"] += 1
+        current["observed_hosts"].add(observed_host.lower())
+
+    normalized_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with normalized_csv_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(
+            [
+                "registered_domain",
+                "threat_type",
+                "first_seen",
+                "last_seen",
+                "threat_count",
+                "observed_hosts_count",
+            ]
+        )
+        for (registered_domain, threat_type), payload in sorted(aggregates.items()):
+            writer.writerow(
+                [
+                    registered_domain,
+                    threat_type,
+                    payload["first_seen"].isoformat(),
+                    payload["last_seen"].isoformat(),
+                    payload["threat_count"],
+                    len(payload["observed_hosts"]),
+                ]
+            )
+
+    valid_observations_count = sum(int(payload["threat_count"]) for payload in aggregates.values())
+    duplicate_count = max(valid_observations_count - len(aggregates), 0)
+    return row_count, len(aggregates), duplicate_count, skipped_count
+
+
 def latest_valid_snapshot(source_dir: Path, now: datetime) -> Path | None:
     if not source_dir.exists():
         return None
@@ -449,6 +569,7 @@ def stale_result(snapshot_dir: Path, requested_date: date, error: Exception, now
         raw_file_path=meta.get("raw_file_path") or meta.get("raw_zip_path"),
         normalized_csv_path=meta.get("normalized_csv_path"),
         error=str(error),
+        skipped_rows=int(meta.get("skipped_rows", 0)),
     )
 
 
@@ -466,6 +587,7 @@ def missing_source_result(source: str, requested_date: date, error: Exception, n
         raw_file_path=None,
         normalized_csv_path=None,
         error=str(error),
+        skipped_rows=0,
     )
 
 
@@ -721,11 +843,72 @@ def download_opr(
         return result
 
 
+def download_urlhaus(
+    output_root: Path,
+    snapshot_date: date,
+    simulate_missing: bool = False,
+    allow_local_stale_cache: bool = False,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+) -> SourceResult:
+    now = utc_now()
+    source_dir = output_root / "urlhaus"
+    snapshot_dir = source_dir / snapshot_date.isoformat()
+
+    try:
+        if simulate_missing:
+            raise RuntimeError("Simulated missing source: urlhaus")
+
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        raw_csv_path = snapshot_dir / "urlhaus_recent.csv"
+        download_file_with_retries(
+            URLHAUS_RECENT_CSV_URL,
+            raw_csv_path,
+            max_attempts=max_attempts,
+            backoff_seconds=retry_backoff_seconds,
+        )
+
+        normalized_csv_path = snapshot_dir / "urlhaus_domains.csv"
+        row_count, valid_row_count, duplicate_count, skipped_rows = normalize_urlhaus_csv(
+            raw_csv_path,
+            normalized_csv_path,
+        )
+        result = SourceResult(
+            source="urlhaus",
+            status="fresh",
+            snapshot_date=snapshot_date.isoformat(),
+            downloaded_at=now.isoformat(),
+            list_id=None,
+            file_hash=sha256_file(raw_csv_path),
+            row_count=row_count,
+            valid_row_count=valid_row_count,
+            duplicate_registered_domains=duplicate_count,
+            raw_file_path=str(raw_csv_path),
+            normalized_csv_path=str(normalized_csv_path),
+            error=None,
+            skipped_rows=skipped_rows,
+        )
+        write_meta(snapshot_dir, result)
+        return result
+    except Exception as error:
+        if allow_local_stale_cache:
+            fallback_dir = latest_valid_snapshot(source_dir, now)
+            if fallback_dir is not None:
+                result = stale_result(fallback_dir, snapshot_date, error, now)
+                write_meta(snapshot_dir, result)
+                return result
+
+        result = missing_source_result("urlhaus", snapshot_date, error, now)
+        write_meta(snapshot_dir, result)
+        return result
+
+
 DOWNLOADERS = {
     "tranco": download_tranco,
     "majestic": download_majestic,
     "cloudflare": download_cloudflare,
     "opr": download_opr,
+    "urlhaus": download_urlhaus,
 }
 
 

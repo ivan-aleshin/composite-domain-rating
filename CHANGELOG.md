@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- URLhaus downloader, BigQuery load configuration, raw source metadata, and
+  staging model as the first risk-layer source on the risk integration branch.
 - OpenPageRank bulk CSV ingestion, BigQuery loading, staging/intermediate
   models, mart integration, and tests as the fifth ranking source.
 - Stable `data-latest` release asset support for automated consumers that need
