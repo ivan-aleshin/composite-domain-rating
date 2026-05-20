@@ -53,6 +53,20 @@ models:
         description: Count of ranking sources present for the domain.
         data_tests:
           - not_null
+      - name: security_flags_observed
+        description: True only when enough independent risk sources have observed this registered domain.
+        data_tests:
+          - not_null
+      - name: risk_sources_count
+        description: Count of risk sources with observations under this registered domain.
+        data_tests:
+          - not_null
+      - name: threat_types
+        description: Distinct observed threat categories aggregated from risk sources.
+        data_tests:
+          - not_null
+      - name: last_threat_seen
+        description: Most recent risk-source observation date for this registered domain.
       - name: snapshot_date
         description: Source snapshot date.
         data_tests:

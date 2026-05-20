@@ -154,7 +154,8 @@ The CSV contains only derived public columns:
 - domain identity;
 - consensus score and coverage fields;
 - source-presence summary;
-- placeholder/reference fields for future TLD and risk layers;
+- placeholder/reference fields for future TLD enrichment;
+- risk observation fields where available;
 - snapshot and methodology version.
 
 The CSV does not include raw third-party ranks, source-specific signal values,

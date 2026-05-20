@@ -123,6 +123,26 @@ jobs:
               --meta-dataset "$META_DATASET"
           done
 
+      - name: Download risk sources
+        run: |
+          python scripts/download_sources.py \
+            --source urlhaus \
+            --date "$SNAPSHOT_DATE" \
+            --output-dir data/raw
+
+      - name: Load risk sources to BigQuery
+        run: |
+          for source in urlhaus; do
+            python scripts/load_to_bigquery.py \
+              --source "$source" \
+              --date "$SNAPSHOT_DATE" \
+              --input-dir data/raw \
+              --project "$GCP_PROJECT_ID" \
+              --location "$BQ_LOCATION" \
+              --raw-dataset "$RAW_DATASET" \
+              --meta-dataset "$META_DATASET"
+          done
+
       - name: Check source health policy
         run: |
           python scripts/check_source_health.py \
@@ -162,6 +182,7 @@ jobs:
             score_in_range \
             coverage_tier_consistency \
             source_percentiles_populated \
+            security_flags_require_multiple_risk_sources \
             single_snapshot_date_per_mart
 
       - name: Source population advisory test

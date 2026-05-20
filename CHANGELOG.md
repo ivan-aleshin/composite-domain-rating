@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Risk aggregation model and mart risk-field integration for URLhaus
+  observations without changing consensus scoring.
+- Weekly refresh steps for URLhaus risk-source download/load, separate from the
+  ranking-source health gate.
 - URLhaus downloader, BigQuery load configuration, raw source metadata, and
   staging model as the first risk-layer source on the risk integration branch.
 - OpenPageRank bulk CSV ingestion, BigQuery loading, staging/intermediate
