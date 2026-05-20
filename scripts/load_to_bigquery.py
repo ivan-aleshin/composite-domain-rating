@@ -95,6 +95,20 @@ SOURCE_LOAD_CONFIGS = {
             bigquery.SchemaField("openpagerank_rank", "INT64"),
         ),
     ),
+    "urlhaus": SourceLoadConfig(
+        source="urlhaus",
+        raw_table="urlhaus_domains",
+        staging_table="urlhaus_domains__staging",
+        normalized_csv_name="urlhaus_domains.csv",
+        load_schema=(
+            bigquery.SchemaField("registered_domain", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("threat_type", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("first_seen", "DATE"),
+            bigquery.SchemaField("last_seen", "DATE"),
+            bigquery.SchemaField("threat_count", "INT64", mode="REQUIRED"),
+            bigquery.SchemaField("observed_hosts_count", "INT64", mode="REQUIRED"),
+        ),
+    ),
 }
 IMPLEMENTED_SOURCES = tuple(SOURCE_LOAD_CONFIGS)
 

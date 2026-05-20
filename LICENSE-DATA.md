@@ -20,6 +20,7 @@ The project publishes only derived aggregate output:
 The project does not publish:
 
 - raw source files;
+- raw threat-feed URLs;
 - raw third-party ranks;
 - raw Majestic `RefSubNets`;
 - raw Cloudflare Radar buckets;
@@ -40,6 +41,15 @@ BigQuery raw tables.
 | CrUX | Query public BigQuery monthly origin data and use experimental popularity bucket | Derived score only; raw buckets are not published | Chrome for Developers documents CrUX BigQuery data access and schema |
 | OpenPageRank | Download DomCop top 10M bulk CSV and use OpenPageRank score as web graph signal | Derived score only; raw scores and ranks are not published | Attribution and terms are documented by OpenPageRank/DomCop |
 
+## Risk Sources Under Development
+
+Risk sources are intended to be a separate observation layer and are not mixed
+into `consensus_score`.
+
+| Source | Current use | Public archive treatment | Notes |
+|---|---|---|---|
+| URLhaus | Download recent malware URL CSV and aggregate observations to registered domains | Raw URLs are not published; future public fields should use cautious observation language | URLhaus community API is free under abuse.ch fair use principles; commercial use may require enhanced/commercial API access |
+
 ## Source References
 
 - Tranco methodology: https://tranco-list.eu/methodology
@@ -50,6 +60,8 @@ BigQuery raw tables.
 - CrUX on BigQuery: https://developer.chrome.com/docs/crux/bigquery/
 - OpenPageRank terms: https://www.domcop.com/openpagerank/terms-and-conditions
 - OpenPageRank attribution: https://www.domcop.com/openpagerank/attribution
+- URLhaus API and exports: https://urlhaus.abuse.ch/api/
+- abuse.ch fair use principles: https://abuse.ch/fair-use/
 
 ## Attribution
 
@@ -63,6 +75,7 @@ underlying sources where appropriate:
 - Cloudflare Radar: Cloudflare Radar, https://radar.cloudflare.com/
 - CrUX: Chrome UX Report, https://developer.chrome.com/docs/crux/bigquery/
 - OpenPageRank: OpenPageRank, https://www.domcop.com/openpagerank/
+- URLhaus: abuse.ch URLhaus, https://urlhaus.abuse.ch/
 
 ## Commercial Use
 

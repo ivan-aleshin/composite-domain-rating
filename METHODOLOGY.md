@@ -35,6 +35,23 @@ This gives the mart a stable join key across sources. It also means the project
 is intentionally a domain-level signal, not a URL-level, hostname-level, or
 origin-level signal.
 
+## Risk Signal Grain
+
+Risk and reputation feeds are modeled as a separate observation layer. They do
+not affect `consensus_score`.
+
+Risk feeds often observe URLs, hosts, or subdomains rather than registered
+domains. To match the ranking grain, these observations are aggregated to
+`registered_domain`. A risk observation therefore means that a public threat
+feed observed one or more URLs, hosts, or subdomains under that registered
+domain.
+
+It does not mean that the registered domain itself, all of its subdomains, or
+the domain owner are malicious. Public output should use observation-oriented
+language such as `security_flags_observed`, `risk_sources_count`,
+`threat_types`, and `last_threat_seen`, and avoid verdict-style language such
+as `is_malicious`.
+
 ## Source Scoring
 
 Each source is converted to a percentile-like score between 0 and 1 where higher
@@ -235,3 +252,4 @@ boosted or suppressed by one source relative to the others.
 - CrUX on BigQuery: https://developer.chrome.com/docs/crux/bigquery/
 - OpenPageRank terms: https://www.domcop.com/openpagerank/terms-and-conditions
 - OpenPageRank attribution: https://www.domcop.com/openpagerank/attribution
+- URLhaus API and exports: https://urlhaus.abuse.ch/api/
