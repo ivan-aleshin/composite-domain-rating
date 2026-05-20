@@ -126,8 +126,9 @@ jobs:
       - name: Download risk sources
         env:
           THREATFOX_AUTH_KEY: ${{ secrets.THREATFOX_AUTH_KEY }}
+          PHISHTANK_APP_KEY: ${{ secrets.PHISHTANK_APP_KEY }}
         run: |
-          for source in urlhaus threatfox; do
+          for source in urlhaus threatfox phishtank; do
             python scripts/download_sources.py \
               --source "$source" \
               --date "$SNAPSHOT_DATE" \
@@ -136,7 +137,7 @@ jobs:
 
       - name: Load risk sources to BigQuery
         run: |
-          for source in urlhaus threatfox; do
+          for source in urlhaus threatfox phishtank; do
             python scripts/load_to_bigquery.py \
               --source "$source" \
               --date "$SNAPSHOT_DATE" \
