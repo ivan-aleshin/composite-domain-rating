@@ -57,6 +57,15 @@ opr AS (
     FROM {{ ref('int_domains_opr') }}
 ),
 
+risk AS (
+    SELECT
+        registered_domain,
+        risk_sources_count,
+        threat_types,
+        last_threat_seen
+    FROM {{ ref('int_domains_risk') }}
+),
+
 domains AS (
     SELECT registered_domain
     FROM tranco
@@ -94,6 +103,9 @@ enriched AS (
         opr.openpagerank_rank,
         opr.opr_subdomains_seen,
         opr.p_opr,
+        risk.risk_sources_count,
+        risk.threat_types,
+        risk.last_threat_seen,
         CAST('{{ var("snapshot_date", run_started_at.strftime("%Y-%m-%d")) }}' AS DATE) AS snapshot_date,
         IF(tranco.p_tranco IS NOT NULL, 1, 0)
         + IF(majestic.p_majestic IS NOT NULL, 1, 0)
@@ -111,6 +123,8 @@ enriched AS (
         ON domains.registered_domain = crux.registered_domain
     LEFT JOIN opr
         ON domains.registered_domain = opr.registered_domain
+    LEFT JOIN risk
+        ON domains.registered_domain = risk.registered_domain
 ),
 
 scored AS (
@@ -169,10 +183,10 @@ SELECT
     ) AS ranking_sources_present,
     CAST(NULL AS STRING) AS tld_category,
     CAST(NULL AS BOOL) AS is_spam_prone_tld,
-    FALSE AS security_flags_observed,
-    0 AS risk_sources_count,
-    ARRAY<STRING>[] AS threat_types,
-    CAST(NULL AS DATE) AS last_threat_seen,
+    COALESCE(risk_sources_count, 0) >= 2 AS security_flags_observed,
+    COALESCE(risk_sources_count, 0) AS risk_sources_count,
+    COALESCE(threat_types, ARRAY<STRING>[]) AS threat_types,
+    last_threat_seen,
     snapshot_date,
     '{{ var("methodology_version", "v0.3.0-beta") }}' AS methodology_version
 FROM scored
