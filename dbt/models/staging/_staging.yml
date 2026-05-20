@@ -201,3 +201,44 @@ models:
         description: Raw ingestion timestamp.
         data_tests:
           - not_null
+
+  - name: stg_phishtank__domains
+    description: PhishTank online phishing URL observations collapsed to registered domain.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - registered_domain
+            - threat_type
+    columns:
+      - name: registered_domain
+        description: Registered domain derived from a PhishTank URL.
+        data_tests:
+          - not_null
+      - name: threat_type
+        description: Fixed phishing category for PhishTank observations.
+        data_tests:
+          - not_null
+      - name: first_seen
+        description: Earliest PhishTank submission date for this domain.
+        data_tests:
+          - not_null
+      - name: last_seen
+        description: Latest PhishTank verification date for this domain.
+        data_tests:
+          - not_null
+      - name: threat_count
+        description: Count of phishing URL observations collapsed into this domain.
+        data_tests:
+          - not_null
+      - name: observed_hosts_count
+        description: Count of distinct URL hosts collapsed into this domain.
+        data_tests:
+          - not_null
+      - name: snapshot_date
+        description: Source snapshot date.
+        data_tests:
+          - not_null
+      - name: ingested_at
+        description: Raw ingestion timestamp.
+        data_tests:
+          - not_null

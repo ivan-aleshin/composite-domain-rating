@@ -22,12 +22,27 @@ threatfox AS (
     FROM {{ ref('stg_threatfox__domains') }}
 ),
 
+phishtank AS (
+    SELECT
+        registered_domain,
+        'phishtank' AS source_name,
+        threat_type,
+        first_seen,
+        last_seen,
+        threat_count,
+        observed_hosts_count
+    FROM {{ ref('stg_phishtank__domains') }}
+),
+
 risk_observations AS (
     SELECT *
     FROM urlhaus
     UNION ALL
     SELECT *
     FROM threatfox
+    UNION ALL
+    SELECT *
+    FROM phishtank
 ),
 
 aggregated AS (

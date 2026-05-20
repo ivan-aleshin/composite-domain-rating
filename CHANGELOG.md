@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- PhishTank downloader, BigQuery load configuration, staging model, and risk
+  aggregation integration as the third risk-layer source.
 - ThreatFox bulk export downloader, BigQuery load configuration, staging model,
   and risk aggregation integration as the second risk-layer source.
 - Risk aggregation model and mart risk-field integration for URLhaus

@@ -11,6 +11,7 @@ import shutil
 import sys
 import tempfile
 import time
+import gzip
 from urllib.parse import urlsplit
 import zipfile
 from dataclasses import asdict, dataclass
@@ -31,6 +32,8 @@ CLOUDFLARE_RADAR_BUCKETS = (200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100
 OPENPAGERANK_TOP_10M_URL = "https://www.domcop.com/files/top/top10milliondomains.csv.zip"
 URLHAUS_RECENT_CSV_URL = "https://urlhaus.abuse.ch/downloads/csv_recent/"
 THREATFOX_FULL_CSV_ZIP_URL = "https://threatfox-api.abuse.ch/v2/files/exports/{auth_key}/full.csv.zip"
+PHISHTANK_CSV_GZ_URL = "https://data.phishtank.com/data/{app_key_segment}online-valid.csv.gz"
+PHISHTANK_USER_AGENT = "phishtank/ivan-aleshin-composite-domain-rating"
 LOCAL_CACHE_STALE_MAX_AGE_DAYS = 14
 REQUEST_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_ATTEMPTS = 3
@@ -38,7 +41,7 @@ DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
 DEFAULT_PROGRESS_INTERVAL_ROWS = 250_000
 RETRIABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
 DEFAULT_ALL_SOURCES = ("tranco", "majestic", "cloudflare", "opr")
-RISK_SOURCES = ("urlhaus", "threatfox")
+RISK_SOURCES = ("urlhaus", "threatfox", "phishtank")
 IMPLEMENTED_SOURCES = DEFAULT_ALL_SOURCES + RISK_SOURCES
 NORMALIZED_CSV_NAMES = {
     "tranco": "tranco_domains.csv",
@@ -47,6 +50,7 @@ NORMALIZED_CSV_NAMES = {
     "opr": "opr_domains.csv",
     "urlhaus": "urlhaus_domains.csv",
     "threatfox": "threatfox_domains.csv",
+    "phishtank": "phishtank_domains.csv",
 }
 
 
@@ -106,8 +110,8 @@ def tranco_list_id(snapshot_date: date) -> str | None:
     return None
 
 
-def download_file(url: str, destination: Path) -> None:
-    with requests.get(url, stream=True, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+def download_file(url: str, destination: Path, headers: dict[str, str] | None = None) -> None:
+    with requests.get(url, headers=headers, stream=True, timeout=REQUEST_TIMEOUT_SECONDS) as response:
         response.raise_for_status()
         with destination.open("wb") as file:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
@@ -172,13 +176,14 @@ def download_file_with_retries(
     destination: Path,
     max_attempts: int,
     backoff_seconds: float,
+    headers: dict[str, str] | None = None,
 ) -> None:
     """Download a file with simple exponential backoff."""
     last_error: requests.RequestException | None = None
 
     for attempt in range(1, max_attempts + 1):
         try:
-            download_file(url, destination)
+            download_file(url, destination, headers=headers)
             return
         except requests.RequestException as error:
             last_error = error
@@ -616,6 +621,73 @@ def normalize_threatfox_zip(zip_path: Path, normalized_csv_path: Path) -> tuple[
                 current["last_seen"] = max(current["last_seen"], last_seen or first_seen)
                 current["threat_count"] += 1
                 current["observed_hosts"].add(observed_host.lower())
+
+    normalized_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with normalized_csv_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(
+            [
+                "registered_domain",
+                "threat_type",
+                "first_seen",
+                "last_seen",
+                "threat_count",
+                "observed_hosts_count",
+            ]
+        )
+        for (registered_domain, threat_type), payload in sorted(aggregates.items()):
+            writer.writerow(
+                [
+                    registered_domain,
+                    threat_type,
+                    payload["first_seen"].isoformat(),
+                    payload["last_seen"].isoformat(),
+                    payload["threat_count"],
+                    len(payload["observed_hosts"]),
+                ]
+            )
+
+    valid_observations_count = sum(int(payload["threat_count"]) for payload in aggregates.values())
+    duplicate_count = max(valid_observations_count - len(aggregates), 0)
+    return row_count, len(aggregates), duplicate_count, skipped_count
+
+
+def normalize_phishtank_gzip(gzip_path: Path, normalized_csv_path: Path) -> tuple[int, int, int, int]:
+    row_count = 0
+    skipped_count = 0
+    aggregates: dict[tuple[str, str], dict[str, Any]] = {}
+
+    with gzip.open(gzip_path, "rt", newline="", encoding="utf-8-sig") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            row_count += 1
+            raw_url = _row_value(row, ("url", "phish_url"))
+            observed_host = _host_from_url(raw_url)
+            registered_domain = normalize_registered_domain(observed_host)
+            if registered_domain is None or observed_host is None:
+                skipped_count += 1
+                continue
+
+            first_seen = _date_or_none(_row_value(row, ("submission_time", "submitted_at", "created_at")))
+            last_seen = _date_or_none(_row_value(row, ("verification_time", "verified_at"))) or first_seen
+            if first_seen is None:
+                skipped_count += 1
+                continue
+
+            key = (registered_domain, "phishing")
+            current = aggregates.setdefault(
+                key,
+                {
+                    "first_seen": first_seen,
+                    "last_seen": last_seen,
+                    "threat_count": 0,
+                    "observed_hosts": set(),
+                },
+            )
+            current["first_seen"] = min(current["first_seen"], first_seen)
+            current["last_seen"] = max(current["last_seen"], last_seen or first_seen)
+            current["threat_count"] += 1
+            current["observed_hosts"].add(observed_host.lower())
 
     normalized_csv_path.parent.mkdir(parents=True, exist_ok=True)
     with normalized_csv_path.open("w", newline="", encoding="utf-8") as file:
@@ -1092,6 +1164,74 @@ def download_threatfox(
         return result
 
 
+def download_phishtank(
+    output_root: Path,
+    snapshot_date: date,
+    simulate_missing: bool = False,
+    allow_local_stale_cache: bool = False,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+) -> SourceResult:
+    now = utc_now()
+    source_dir = output_root / "phishtank"
+    snapshot_dir = source_dir / snapshot_date.isoformat()
+    app_key: str | None = None
+
+    try:
+        if simulate_missing:
+            raise RuntimeError("Simulated missing source: phishtank")
+
+        app_key = os.environ.get("PHISHTANK_APP_KEY")
+        app_key_segment = f"{app_key}/" if app_key else ""
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        raw_gzip_path = snapshot_dir / "online-valid.csv.gz"
+        download_file_with_retries(
+            PHISHTANK_CSV_GZ_URL.format(app_key_segment=app_key_segment),
+            raw_gzip_path,
+            max_attempts=max_attempts,
+            backoff_seconds=retry_backoff_seconds,
+            headers={"User-Agent": PHISHTANK_USER_AGENT},
+        )
+
+        normalized_csv_path = snapshot_dir / "phishtank_domains.csv"
+        row_count, valid_row_count, duplicate_count, skipped_rows = normalize_phishtank_gzip(
+            raw_gzip_path,
+            normalized_csv_path,
+        )
+        result = SourceResult(
+            source="phishtank",
+            status="fresh",
+            snapshot_date=snapshot_date.isoformat(),
+            downloaded_at=now.isoformat(),
+            list_id=None,
+            file_hash=sha256_file(raw_gzip_path),
+            row_count=row_count,
+            valid_row_count=valid_row_count,
+            duplicate_registered_domains=duplicate_count,
+            raw_file_path=str(raw_gzip_path),
+            normalized_csv_path=str(normalized_csv_path),
+            error=None,
+            skipped_rows=skipped_rows,
+        )
+        write_meta(snapshot_dir, result)
+        return result
+    except Exception as error:
+        safe_error: Exception = error
+        if app_key:
+            safe_error = RuntimeError(str(error).replace(app_key, "<redacted>"))
+
+        if allow_local_stale_cache:
+            fallback_dir = latest_valid_snapshot(source_dir, now)
+            if fallback_dir is not None:
+                result = stale_result(fallback_dir, snapshot_date, safe_error, now)
+                write_meta(snapshot_dir, result)
+                return result
+
+        result = missing_source_result("phishtank", snapshot_date, safe_error, now)
+        write_meta(snapshot_dir, result)
+        return result
+
+
 DOWNLOADERS = {
     "tranco": download_tranco,
     "majestic": download_majestic,
@@ -1099,6 +1239,7 @@ DOWNLOADERS = {
     "opr": download_opr,
     "urlhaus": download_urlhaus,
     "threatfox": download_threatfox,
+    "phishtank": download_phishtank,
 }
 
 
