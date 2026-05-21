@@ -57,6 +57,15 @@ domain/URL IOC observations, and PhishTank online phishing URL observations.
 All three are collapsed to registered domains before they are joined to the
 ranking mart.
 
+For shared hosting, cloud infrastructure, UGC, and public-subdomain platforms,
+this signal should be interpreted as hosted-content exposure rather than a
+verdict on the platform owner. For example, a risk observation under a platform
+domain can mean that abusive content was observed on a user-controlled
+subdomain, path, or hosted resource. The project keeps these observations
+because they are useful context for downstream consumers: such domains often
+require URL- or hostname-level inspection rather than registered-domain-only
+interpretation.
+
 ## Source Scoring
 
 Each source is converted to a percentile-like score between 0 and 1 where higher

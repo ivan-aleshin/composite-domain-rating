@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Risk-layer diagnostic analyses for source overlap, mart coverage, and
+  shared-platform interpretation candidates.
 - PhishTank downloader, BigQuery load configuration, staging model, and risk
   aggregation integration as the third risk-layer source.
 - ThreatFox bulk export downloader, BigQuery load configuration, staging model,
