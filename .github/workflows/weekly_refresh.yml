@@ -13,8 +13,8 @@ on:
         default: true
         type: boolean
   schedule:
-    # Monday 07:52 UTC
-    - cron: "52 7 * * 1"
+    # Sunday 07:52 UTC
+    - cron: "52 7 * * 0"
 
 permissions:
   contents: write
