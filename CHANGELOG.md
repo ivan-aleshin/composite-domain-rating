@@ -42,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Methodology version bumped to `v0.3.0-beta` for OpenPageRank scoring.
 
 ### Changed
+- Keep `last_threat_seen` internal to the mart while omitting it from the
+  public CSV risk-layer schema.
 - Update the five-source methodology diagnostics summary using the published
   `2026-05-24` weekly mart.
 - Scope weekly source freshness to the ranking raw tables loaded by the main

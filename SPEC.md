@@ -117,7 +117,6 @@ attribute layer:
 - `security_flags_observed` — boolean, true if observed in ≥ 2 risk feeds
 - `risk_sources_count` — number of risk feeds that observed the domain
 - `threat_types` — array of observed threat types
-- `last_threat_seen` — most recent observation date
 
 A domain can have a high consensus score and security flags — the data shows
 both facts without hiding either. The framing is intentionally cautious:
@@ -192,7 +191,6 @@ is_spam_prone_tld            -- from curated seed
 security_flags_observed      -- boolean (≥ 2 risk sources)
 risk_sources_count           -- 0–3
 threat_types                 -- array
-last_threat_seen             -- date or NULL
 snapshot_date                -- ISO date
 methodology_version          -- e.g., 'v0.3.0-beta'
 ```

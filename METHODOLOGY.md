@@ -49,8 +49,7 @@ domain.
 It does not mean that the registered domain itself, all of its subdomains, or
 the domain owner are malicious. Public output should use observation-oriented
 language such as `security_flags_observed`, `risk_sources_count`,
-`threat_types`, and `last_threat_seen`, and avoid verdict-style language such
-as `is_malicious`.
+and `threat_types`, and avoid verdict-style language such as `is_malicious`.
 
 The current risk-layer branch uses URLhaus malware URL observations, ThreatFox
 domain/URL IOC observations, and PhishTank online phishing URL observations.
