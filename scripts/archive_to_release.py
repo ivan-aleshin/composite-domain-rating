@@ -37,7 +37,6 @@ PUBLIC_COLUMNS = (
     "security_flags_observed",
     "risk_sources_count",
     "threat_types",
-    "last_threat_seen",
     "snapshot_date",
     "methodology_version",
 )
@@ -168,7 +167,6 @@ def export_public_csv(
         security_flags_observed,
         risk_sources_count,
         ARRAY_TO_STRING(threat_types, '|') AS threat_types,
-        last_threat_seen,
         snapshot_date,
         methodology_version
     FROM {quoted_table(project, marts_dataset, mart_table)}

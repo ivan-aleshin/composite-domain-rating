@@ -49,8 +49,21 @@ domain.
 It does not mean that the registered domain itself, all of its subdomains, or
 the domain owner are malicious. Public output should use observation-oriented
 language such as `security_flags_observed`, `risk_sources_count`,
-`threat_types`, and `last_threat_seen`, and avoid verdict-style language such
-as `is_malicious`.
+and `threat_types`, and avoid verdict-style language such as `is_malicious`.
+
+The current risk-layer branch uses URLhaus malware URL observations, ThreatFox
+domain/URL IOC observations, and PhishTank online phishing URL observations.
+All three are collapsed to registered domains before they are joined to the
+ranking mart.
+
+For shared hosting, cloud infrastructure, UGC, and public-subdomain platforms,
+this signal should be interpreted as hosted-content exposure rather than a
+verdict on the platform owner. For example, a risk observation under a platform
+domain can mean that abusive content was observed on a user-controlled
+subdomain, path, or hosted resource. The project keeps these observations
+because they are useful context for downstream consumers: such domains often
+require URL- or hostname-level inspection rather than registered-domain-only
+interpretation.
 
 ## Source Scoring
 
@@ -164,7 +177,8 @@ The CSV contains only derived public columns:
 - domain identity;
 - consensus score and coverage fields;
 - source-presence summary;
-- placeholder/reference fields for future TLD and risk layers;
+- placeholder/reference fields for future TLD enrichment;
+- risk observation fields where available;
 - snapshot and methodology version.
 
 The CSV does not include raw third-party ranks, source-specific signal values,
@@ -263,3 +277,5 @@ boosted or suppressed by one source relative to the others.
 - OpenPageRank terms: https://www.domcop.com/openpagerank/terms-and-conditions
 - OpenPageRank attribution: https://www.domcop.com/openpagerank/attribution
 - URLhaus API and exports: https://urlhaus.abuse.ch/api/
+- ThreatFox API and exports: https://threatfox.abuse.ch/api/
+- PhishTank developer information: https://phishtank.org/developer_info.php

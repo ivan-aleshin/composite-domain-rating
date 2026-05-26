@@ -165,3 +165,81 @@ sources:
             description: Timestamp when the raw table was created or refreshed.
             data_tests:
               - not_null
+      - name: threatfox_domains
+        description: ThreatFox IOC export observations, aggregated to registered domains and threat types.
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: { count: 8, period: day }
+          error_after: { count: 15, period: day }
+        columns:
+          - name: registered_domain
+            description: Registered domain derived from a ThreatFox domain or URL IOC.
+            data_tests:
+              - not_null
+          - name: threat_type
+            description: Threat category reported by ThreatFox.
+            data_tests:
+              - not_null
+          - name: first_seen
+            description: Earliest ThreatFox observation date for this domain and threat type.
+            data_tests:
+              - not_null
+          - name: last_seen
+            description: Latest ThreatFox observation date for this domain and threat type.
+            data_tests:
+              - not_null
+          - name: threat_count
+            description: Count of IOC observations collapsed into this domain and threat type.
+            data_tests:
+              - not_null
+          - name: observed_hosts_count
+            description: Count of distinct IOC hosts collapsed into this registered domain and threat type.
+            data_tests:
+              - not_null
+          - name: snapshot_date
+            description: Source snapshot date loaded by the ingestion script.
+            data_tests:
+              - not_null
+          - name: ingested_at
+            description: Timestamp when the raw table was created or refreshed.
+            data_tests:
+              - not_null
+      - name: phishtank_domains
+        description: PhishTank online valid phishing URL observations, aggregated to registered domains.
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: { count: 8, period: day }
+          error_after: { count: 15, period: day }
+        columns:
+          - name: registered_domain
+            description: Registered domain derived from a PhishTank URL.
+            data_tests:
+              - not_null
+          - name: threat_type
+            description: Fixed phishing category for PhishTank observations.
+            data_tests:
+              - not_null
+          - name: first_seen
+            description: Earliest PhishTank submission date for this domain.
+            data_tests:
+              - not_null
+          - name: last_seen
+            description: Latest PhishTank verification date for this domain.
+            data_tests:
+              - not_null
+          - name: threat_count
+            description: Count of phishing URL observations collapsed into this domain.
+            data_tests:
+              - not_null
+          - name: observed_hosts_count
+            description: Count of distinct URL hosts collapsed into this registered domain.
+            data_tests:
+              - not_null
+          - name: snapshot_date
+            description: Source snapshot date loaded by the ingestion script.
+            data_tests:
+              - not_null
+          - name: ingested_at
+            description: Timestamp when the raw table was created or refreshed.
+            data_tests:
+              - not_null

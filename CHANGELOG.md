@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Risk-layer diagnostic analyses for source overlap, mart coverage, and
+  shared-platform interpretation candidates.
+- PhishTank downloader, BigQuery load configuration, staging model, and risk
+  aggregation integration as the third risk-layer source.
+- ThreatFox bulk export downloader, BigQuery load configuration, staging model,
+  and risk aggregation integration as the second risk-layer source.
+- Risk aggregation model and mart risk-field integration for URLhaus
+  observations without changing consensus scoring.
+- Weekly refresh steps for URLhaus risk-source download/load, separate from the
+  ranking-source health gate.
 - URLhaus downloader, BigQuery load configuration, raw source metadata, and
   staging model as the first risk-layer source on the risk integration branch.
 - OpenPageRank bulk CSV ingestion, BigQuery loading, staging/intermediate
@@ -32,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Methodology version bumped to `v0.3.0-beta` for OpenPageRank scoring.
 
 ### Changed
+- Keep `last_threat_seen` internal to the mart while omitting it from the
+  public CSV risk-layer schema.
 - Update the five-source methodology diagnostics summary using the published
   `2026-05-24` weekly mart.
 - Scope weekly source freshness to the ranking raw tables loaded by the main

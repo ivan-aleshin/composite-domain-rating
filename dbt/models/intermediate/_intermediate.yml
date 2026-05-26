@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: int_domains_risk
+    description: Risk observations aggregated to the registered-domain grain.
+    columns:
+      - name: registered_domain
+        description: Registered domain with one or more risk-source observations.
+        data_tests:
+          - unique
+          - not_null
+      - name: risk_sources_count
+        description: Count of independent risk sources observing this registered domain.
+        data_tests:
+          - not_null
+      - name: threat_types
+        description: Distinct observed threat categories for this registered domain.
+        data_tests:
+          - not_null
+      - name: first_threat_seen
+        description: Earliest risk-source observation date for this registered domain.
+        data_tests:
+          - not_null
+      - name: last_threat_seen
+        description: Most recent risk-source observation date for this registered domain.
+        data_tests:
+          - not_null
+      - name: threat_count
+        description: Count of risk observations collapsed into this registered domain.
+        data_tests:
+          - not_null
+      - name: observed_hosts_count
+        description: Count of observed hosts collapsed into this registered domain.
+        data_tests:
+          - not_null
