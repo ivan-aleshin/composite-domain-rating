@@ -130,31 +130,41 @@ is less robust than a score backed by more independent sources.
 
 ## Five-Source Diagnostics
 
-A diagnostic run against the `2026-05-18` development mart produced 18.36M
+A diagnostic run against the published `2026-05-24` weekly mart produced 18.36M
 internal domain rows under methodology `v0.3.0-beta`.
 
-The scored universe contained 878,514 domains:
+The scored universe contained 882,160 domains:
 
-- 224,743 domains with all five ranking sources;
-- 178,187 domains with four sources;
-- 475,584 domains with three sources.
+- 229,533 domains with all five ranking sources;
+- 180,648 domains with four sources;
+- 471,979 domains with three sources.
 
-The broader public archive policy would include 3.34M rows: scored domains plus
-2.46M sparse domains observed by at least two sources. Single-source rows remain
+The broader public archive contained 3.32M rows: scored domains plus 2.44M
+sparse domains observed by at least two sources. Single-source rows remain
 available in the internal mart for coverage diagnostics, but are excluded from
-the public archive.
+the public archive. This matters because the internal single-source tail is
+large: CrUX-only and OpenPageRank-only rows together account for over 14.5M
+domains in this snapshot.
 
 The strongest source relationship in this run was Tranco and Cloudflare Radar
-(Spearman correlation around 0.58 on overlapping domains). OpenPageRank showed
-weaker correlations with the existing sources, including CrUX, which supports
-keeping it as a complementary fifth source rather than treating it as redundant.
+(Spearman correlation around 0.58 on overlapping domains). Tranco and Majestic,
+and Majestic and OpenPageRank, also showed moderate agreement. CrUX and
+OpenPageRank have broad coverage but lower correlations with the other sources,
+which supports keeping them as complementary signals rather than treating them
+as redundant ranking lists.
 
 Jackknife diagnostics showed that CrUX and Majestic have the largest average
-score influence in the current equal-weight formula, while OpenPageRank is
-meaningful but not dominant. Source-agreement diagnostics also show a substantial
-low-agreement tail, even among high-coverage domains. This is expected for a
-consensus score built from different source universes, and it is one reason the
-project keeps source presence and coverage fields in the public output.
+score influence in the current equal-weight formula. CrUX is especially
+influential because it is both broad and bucket-based. Source-agreement
+diagnostics also show a substantial low-agreement tail, even among high-coverage
+domains. This is expected for a consensus score built from different source
+universes, and it is one reason the project keeps source presence and coverage
+fields in the public output.
+
+A top-score sanity check produced well-known full-coverage domains such as
+`google.com`, `facebook.com`, `youtube.com`, `microsoft.com`, `apple.com`,
+`github.com`, and `wikipedia.org`, which provides a basic guard against
+inverted scoring or obviously misdirected ranking behavior.
 
 ## Public Archive
 
