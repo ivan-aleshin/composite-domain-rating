@@ -51,7 +51,7 @@ the domain owner are malicious. Public output should use observation-oriented
 language such as `security_flags_observed`, `risk_sources_count`,
 and `threat_types`, and avoid verdict-style language such as `is_malicious`.
 
-The current risk-layer branch uses URLhaus malware URL observations, ThreatFox
+The current beta risk layer uses URLhaus malware URL observations, ThreatFox
 domain/URL IOC observations, and PhishTank online phishing URL observations.
 All three are collapsed to registered domains before they are joined to the
 ranking mart.
@@ -250,7 +250,7 @@ Raw third-party source data is not published in GitHub Releases.
 
 Potential future additions:
 
-- risk/reputation feeds as a separate attribute layer;
+- additional risk/reputation feeds as part of the separate observation layer;
 - sensitivity analysis across source percentiles;
 - fuller public documentation for v1.0.
 
