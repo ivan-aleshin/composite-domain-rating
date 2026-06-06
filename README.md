@@ -7,9 +7,11 @@
 [![dbt](https://img.shields.io/badge/dbt-1.8+-orange.svg)](https://www.getdbt.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Status**: beta. The first data release was published with Tranco, Majestic
-Million, and Cloudflare Radar. CrUX and OpenPageRank are now integrated into
-the dbt mart and are included in the five-source beta methodology.
+**Status**: beta. The current project version is `v0.2.0-beta`; the current
+scoring methodology is `v0.3.0-beta`. The ranking methodology uses Tranco,
+Majestic Million, Cloudflare Radar, CrUX, and OpenPageRank. URLhaus,
+ThreatFox, and PhishTank are integrated as a separate risk-observation layer
+that does not affect `consensus_score`.
 
 ## Overview
 
@@ -36,20 +38,22 @@ lineage, CI checks, and public derived CSV archives.
 - [Methodology](./METHODOLOGY.md)
 - [Data license notes](./LICENSE-DATA.md)
 - [Roadmap](./ROADMAP.md)
+- [Analysis reports](./docs/analysis/README.md)
 - [Data releases](https://github.com/ivan-aleshin/composite-domain-rating/releases)
 - [Weekly refresh workflow](https://github.com/ivan-aleshin/composite-domain-rating/actions/workflows/weekly_refresh.yml)
 
 ## Current Scope
 
 The current beta scope includes Tranco, Majestic Million, Cloudflare Radar,
-CrUX, and OpenPageRank:
+CrUX, OpenPageRank, and a separate public-threat-observation layer:
 
 - download and normalize Tranco, Majestic, Cloudflare Radar, and OpenPageRank domains
 - read CrUX monthly popularity buckets from the public BigQuery dataset
+- download and normalize URLhaus, ThreatFox, and PhishTank observations
 - load normalized raw data into BigQuery
 - track source update status in `meta.source_update_log`
 - build staging, intermediate, and mart dbt models
-- validate source direction, coverage semantics, score range, and basic data quality
+- validate source direction, coverage semantics, score range, risk-flag thresholding, and basic data quality
 - publish only derived output, not raw third-party rankings
 
 ## Beta Data
@@ -75,7 +79,8 @@ Each data release includes:
 The public CSV is sorted by `consensus_score` descending, then `sources_count`
 descending, then `registered_domain` ascending for deterministic ties.
 
-The first beta code/methodology release is `v0.1.0-beta`.
+The first beta code release was `v0.1.0-beta`. The current project version is
+`v0.2.0-beta`; the current scoring methodology is `v0.3.0-beta`.
 
 For interpretation details and limitations, see [METHODOLOGY.md](./METHODOLOGY.md).
 For source terms and publication constraints, see [LICENSE-DATA.md](./LICENSE-DATA.md).
@@ -100,14 +105,16 @@ dbt debug
 
 ## Local source refresh
 
-After configuring local BigQuery credentials, implemented ranking sources can be
-refreshed end to end:
+After configuring local BigQuery credentials, implemented ranking sources and
+risk observations can be refreshed end to end:
 
 ```bash
 # From the repository root
 export SNAPSHOT_DATE=YYYY-MM-DD
 export GCP_PROJECT_ID=YOUR_GCP_PROJECT_ID
 export CLOUDFLARE_API_TOKEN=...  # or load it from your local .env
+export THREATFOX_AUTH_KEY=...     # required for ThreatFox risk observations
+export PHISHTANK_APP_KEY=...      # optional, improves PhishTank API access
 
 python scripts/download_sources.py \
   --all \
@@ -115,6 +122,20 @@ python scripts/download_sources.py \
   --output-dir data/raw
 
 for source in tranco majestic cloudflare opr; do
+  python scripts/load_to_bigquery.py \
+    --source "$source" \
+    --date "$SNAPSHOT_DATE" \
+    --input-dir data/raw \
+    --project "$GCP_PROJECT_ID" \
+    --location US
+done
+
+for source in urlhaus threatfox phishtank; do
+  python scripts/download_sources.py \
+    --source "$source" \
+    --date "$SNAPSHOT_DATE" \
+    --output-dir data/raw
+
   python scripts/load_to_bigquery.py \
     --source "$source" \
     --date "$SNAPSHOT_DATE" \
@@ -137,6 +158,7 @@ dbt test --select \
   score_in_range \
   coverage_tier_consistency \
   source_percentiles_populated \
+  security_flags_require_multiple_risk_sources \
   single_snapshot_date_per_mart
 ```
 
@@ -147,6 +169,9 @@ fallback for stale sources is based on private BigQuery raw tables and
 `CLOUDFLARE_API_TOKEN` is required for Cloudflare Radar downloads.
 OpenPageRank uses DomCop's public zipped top 10M CSV and does not require an API
 key for the current beta ingestion path.
+
+`THREATFOX_AUTH_KEY` is required for ThreatFox bulk exports. `PHISHTANK_APP_KEY`
+is optional, but recommended for automated PhishTank downloads.
 
 Cloudflare Radar and CrUX are modeled as ranking buckets rather than exact
 ranks. The pipeline uses the smallest bucket containing a domain as the source
@@ -188,6 +213,10 @@ Diagnostic dbt analyses under `dbt/analyses/` help review source coverage,
 overlap, percentile correlation, source agreement, and jackknife influence
 before adding new ranking sources.
 
+Public release diagnostics under `docs/analysis/` summarize published archive
+shape, source combinations, risk-surface, schema changes, and week-over-week
+stability using only GitHub release assets.
+
 The same export path is used by the weekly GitHub Actions refresh workflow,
 which can also be run manually from the Actions tab. Scheduled data releases
 are created as GitHub prereleases so they do not replace code releases.
@@ -196,7 +225,7 @@ The workflow expects these repository secrets:
 
 - `GCP_SA_KEY` — service account JSON for BigQuery jobs
 - `CLOUDFLARE_API_TOKEN` — Cloudflare Radar API token
-- `THREATFOX_AUTH_KEY` — ThreatFox export auth key, required on the risk-layer branch
+- `THREATFOX_AUTH_KEY` — ThreatFox export auth key
 - `PHISHTANK_APP_KEY` — optional PhishTank app key for automated risk-layer downloads
 
 ## Disclaimer

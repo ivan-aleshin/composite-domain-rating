@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta] - 2026-06-06
+
 ### Added
+- Public release diagnostics CLI and `docs/analysis/` reports generated from
+  published release assets.
+- Repository keepalive workflow with a two-week scheduled heartbeat.
 - Risk-layer diagnostic analyses for source overlap, mart coverage, and
   shared-platform interpretation candidates.
 - PhishTank downloader, BigQuery load configuration, staging model, and risk
@@ -19,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Weekly refresh steps for URLhaus risk-source download/load, separate from the
   ranking-source health gate.
 - URLhaus downloader, BigQuery load configuration, raw source metadata, and
-  staging model as the first risk-layer source on the risk integration branch.
+  staging model as the first beta risk-layer source.
 - OpenPageRank bulk CSV ingestion, BigQuery loading, staging/intermediate
   models, mart integration, and tests as the fifth ranking source.
 - Stable `data-latest` release asset support for automated consumers that need
