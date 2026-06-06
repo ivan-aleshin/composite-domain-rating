@@ -1,0 +1,88 @@
+name: Keepalive
+
+on:
+  schedule:
+    # Every Sunday at 03:23 UTC. The job gates scheduled runs to a 14-day
+    # cadence anchored on 2026-06-07 while keeping manual dispatch available.
+    - cron: "23 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  keepalive:
+    name: Repository maintenance heartbeat
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve heartbeat cadence
+        id: cadence
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch: running heartbeat."
+            exit 0
+          fi
+
+          today_epoch=$(date -u -d "$(date -u +%F)" +%s)
+          anchor_epoch=$(date -u -d "2026-06-07" +%s)
+          days_since_anchor=$(((today_epoch - anchor_epoch) / 86400))
+
+          if [ $((days_since_anchor % 14)) -eq 0 ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Scheduled heartbeat day offset ${days_since_anchor}: running."
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Scheduled heartbeat day offset ${days_since_anchor}: skipping."
+          fi
+
+      - name: Ensure maintenance label exists
+        if: steps.cadence.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh label create maintenance \
+            --description "Automated repository maintenance marker" \
+            --color ededed \
+            --force
+
+      - name: Toggle maintenance heartbeat issue
+        if: steps.cadence.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          today=$(date -u +%Y-%m-%d)
+
+          issue_num=$(gh issue list \
+            --label maintenance \
+            --state all \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -z "$issue_num" ]; then
+            echo "No maintenance heartbeat issue found; creating one."
+            gh issue create \
+              --title "[bot] repository maintenance heartbeat" \
+              --body "Automated maintenance marker for scheduled workflow continuity. See https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule" \
+              --label maintenance
+
+            new_num=$(gh issue list \
+              --label maintenance \
+              --state open \
+              --limit 1 \
+              --json number \
+              --jq '.[0].number')
+            gh issue close "$new_num" --comment "Heartbeat ${today}"
+          else
+            echo "Found maintenance heartbeat issue #${issue_num}; toggling."
+            gh issue reopen "$issue_num"
+            gh issue close "$issue_num" --comment "Heartbeat ${today}"
+          fi
