@@ -23,6 +23,8 @@ STALE_TTL_DAYS = {
     "majestic": 30,
     "cloudflare": 30,
     "opr": 120,
+    # Unused: CrUX is read live from the public dataset, not via this load path.
+    # Freshness is set by the day-14 macro in crux_utils.sql. Kept for docs.
     "crux": 75,
     "urlhaus": 15,
     "threatfox": 15,
