@@ -69,20 +69,26 @@ jobs:
 
           if [ -z "$issue_num" ]; then
             echo "No maintenance heartbeat issue found; creating one."
-            gh issue create \
+            issue_url=$(gh issue create \
               --title "[bot] repository maintenance heartbeat" \
               --body "Automated maintenance marker for scheduled workflow continuity. See https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule" \
-              --label maintenance
+              --label maintenance)
 
-            new_num=$(gh issue list \
-              --label maintenance \
-              --state open \
-              --limit 1 \
-              --json number \
-              --jq '.[0].number')
-            gh issue close "$new_num" --comment "Heartbeat ${today}"
+            issue_num="${issue_url##*/}"
+            if ! [[ "$issue_num" =~ ^[0-9]+$ ]]; then
+              echo "Unable to parse issue number from created issue URL: ${issue_url}" >&2
+              exit 1
+            fi
+
+            echo "Created maintenance heartbeat issue #${issue_num}."
           else
             echo "Found maintenance heartbeat issue #${issue_num}; toggling."
-            gh issue reopen "$issue_num"
-            gh issue close "$issue_num" --comment "Heartbeat ${today}"
+            issue_state=$(gh issue view "$issue_num" --json state --jq '.state')
+            if [ "$issue_state" = "CLOSED" ]; then
+              gh issue reopen "$issue_num"
+            else
+              echo "Issue #${issue_num} is already open."
+            fi
           fi
+
+          gh issue close "$issue_num" --comment "Heartbeat ${today}"
