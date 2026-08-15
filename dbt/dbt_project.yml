@@ -1,5 +1,5 @@
 name: 'composite_domain_rating'
-version: '0.2.0'
+version: '1.0.0-rc.1'
 config-version: 2
 
 profile: 'composite_domain_rating'
