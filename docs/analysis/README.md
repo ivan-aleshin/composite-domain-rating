@@ -5,11 +5,17 @@ data releases and methodology diagnostics.
 
 Reports under `releases/` are built from public GitHub release assets only:
 the derived CSV archive and its metadata JSON. They are useful for archive
-shape, source coverage, risk-surface, schema, and week-over-week stability
-checks.
+shape, source coverage, risk-surface, and schema checks.
 
 Use `scripts/analysis/analyze_public_release.py` to generate these reports
 from downloaded release assets.
+
+Reports under `stability/` compare multiple public release assets across a
+release window. They are useful for schema stability, source freshness,
+top-N retention, public-domain churn, and score-drift checks.
+
+Use `scripts/analysis/analyze_release_stability.py` to generate these reports
+from a directory containing one downloaded asset folder per release tag.
 
 They do not replace internal dbt analyses under `dbt/analyses/`. Public
 release assets intentionally omit raw ranks and source-specific percentiles, so
@@ -19,3 +25,7 @@ internal mart or dbt analysis queries.
 Current release reports:
 
 - [2026-05-31](./releases/2026-05-31.md)
+
+Current stability reports:
+
+- [2026-08-09](./stability/2026-08-09.md)
