@@ -1,13 +1,15 @@
 # Methodology
 
-This document describes the beta methodology used by `composite-domain-rating`.
+This document describes the current methodology used by
+`composite-domain-rating`.
 It is written for readers who want to understand what the score means, what it
 does not mean, and how the public archive should be interpreted.
 
 ## Scope
 
 `composite-domain-rating` builds a derived consensus signal from independent
-public ranking sources. The beta release currently uses five ranking sources:
+public ranking sources. The current release candidate uses five ranking
+sources:
 
 | Source | Signal used | Direction |
 |---|---|---|
@@ -51,7 +53,7 @@ the domain owner are malicious. Public output should use observation-oriented
 language such as `security_flags_observed`, `risk_sources_count`,
 and `threat_types`, and avoid verdict-style language such as `is_malicious`.
 
-The current beta risk layer uses URLhaus malware URL observations, ThreatFox
+The current risk layer uses URLhaus malware URL observations, ThreatFox
 domain/URL IOC observations, and PhishTank online phishing URL observations.
 All three are collapsed to registered domains before they are joined to the
 ranking mart.
@@ -94,7 +96,7 @@ bucketed sources such as Cloudflare Radar and CrUX.
 
 ## Consensus Score
 
-The current beta methodology version is `v0.3.0-beta`.
+The current methodology version is `v0.3.0-beta`.
 
 The public `consensus_score` is an equal-weight average of available source
 percentiles, scaled to 0-100:
@@ -103,9 +105,10 @@ percentiles, scaled to 0-100:
 consensus_score = average(non-null source percentiles) * 100
 ```
 
-In the beta release, `min_sources_for_score = 3`. A domain must appear in at
-least three implemented beta ranking sources to receive a score. Domains with
-fewer signals remain in the mart and public CSV, but their score is `NULL`.
+In the current release candidate, `min_sources_for_score = 3`. A domain must
+appear in at least three implemented ranking sources to receive a score.
+Domains with fewer signals remain in the mart and public CSV, but their score
+is `NULL`.
 
 The project uses equal weighting because there is no external ground truth for
 "domain prominence" that would justify a learned or manually weighted formula.
@@ -233,7 +236,7 @@ Raw third-party source data is not published in GitHub Releases.
 
 ## Current Limitations
 
-- The beta score uses five ranking sources.
+- The score uses five ranking sources.
 - Cloudflare Radar and CrUX are bucketed, so many domains intentionally share
   the same source percentile.
 - CrUX is an origin-level dataset that is collapsed to registered domains; this
@@ -244,7 +247,7 @@ Raw third-party source data is not published in GitHub Releases.
   signal on the web.
 - Scores are not security verdicts, business quality ratings, or financial
   recommendations.
-- The public schema and methodology may evolve before `v1.0.0`.
+- The public schema and methodology may evolve in future minor releases.
 
 ## Deferred Work
 
@@ -252,7 +255,7 @@ Potential future additions:
 
 - additional risk/reputation feeds as part of the separate observation layer;
 - sensitivity analysis across source percentiles;
-- fuller public documentation for v1.0.
+- fuller public documentation for future releases.
 
 Some sources are intentionally out of scope. HTTP Archive and OpenINTEL are too
 large for the project's free-tier BigQuery sandbox design. Wikidata official

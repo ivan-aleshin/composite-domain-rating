@@ -7,11 +7,11 @@
 [![dbt](https://img.shields.io/badge/dbt-1.8+-orange.svg)](https://www.getdbt.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Status**: beta. The current project version is `v0.2.0-beta`; the current
-scoring methodology is `v0.3.0-beta`. The ranking methodology uses Tranco,
-Majestic Million, Cloudflare Radar, CrUX, and OpenPageRank. URLhaus,
-ThreatFox, and PhishTank are integrated as a separate risk-observation layer
-that does not affect `consensus_score`.
+**Status**: release candidate. The current project version is
+`v1.0.0-rc.1`; the current scoring methodology is `v0.3.0-beta`. The ranking
+methodology uses Tranco, Majestic Million, Cloudflare Radar, CrUX, and
+OpenPageRank. URLhaus, ThreatFox, and PhishTank are integrated as a separate
+risk-observation layer that does not affect `consensus_score`.
 
 ## Overview
 
@@ -24,7 +24,7 @@ normalizes each source into percentile ranks, combines available signals with
 equal weighting, and keeps source coverage explicit so sparse data is not
 presented as false certainty.
 
-In the current beta methodology, a domain receives a `consensus_score` when it is
+In the current methodology, a domain receives a `consensus_score` when it is
 present in at least three ranking sources. Domains with fewer signals remain in
 the mart for coverage analysis, but their score is `NULL` and their
 `coverage_tier` is `sparse`. Five-source rows use `coverage_tier = full`.
@@ -44,8 +44,9 @@ lineage, CI checks, and public derived CSV archives.
 
 ## Current Scope
 
-The current beta scope includes Tranco, Majestic Million, Cloudflare Radar,
-CrUX, OpenPageRank, and a separate public-threat-observation layer:
+The current release-candidate scope includes Tranco, Majestic Million,
+Cloudflare Radar, CrUX, OpenPageRank, and a separate public-threat-observation
+layer:
 
 - download and normalize Tranco, Majestic, Cloudflare Radar, and OpenPageRank domains
 - read CrUX monthly popularity buckets from the public BigQuery dataset
@@ -56,10 +57,10 @@ CrUX, OpenPageRank, and a separate public-threat-observation layer:
 - validate source direction, coverage semantics, score range, risk-flag thresholding, and basic data quality
 - publish only derived output, not raw third-party rankings
 
-## Beta Data
+## Data Releases
 
-Historical beta data snapshots are published as GitHub prereleases with tags
-like `data-YYYY-WNN`.
+Historical data snapshots are published as GitHub prereleases with tags like
+`data-YYYY-WNN`.
 
 The latest derived archive is also published under stable asset URLs:
 
@@ -79,8 +80,9 @@ Each data release includes:
 The public CSV is sorted by `consensus_score` descending, then `sources_count`
 descending, then `registered_domain` ascending for deterministic ties.
 
-The first beta code release was `v0.1.0-beta`. The current project version is
-`v0.2.0-beta`; the current scoring methodology is `v0.3.0-beta`.
+The first beta code release was `v0.1.0-beta`. The current project release
+candidate is `v1.0.0-rc.1`; the current scoring methodology is
+`v0.3.0-beta`.
 
 For interpretation details and limitations, see [METHODOLOGY.md](./METHODOLOGY.md).
 For source terms and publication constraints, see [LICENSE-DATA.md](./LICENSE-DATA.md).
@@ -168,7 +170,7 @@ fallback for stale sources is based on private BigQuery raw tables and
 
 `CLOUDFLARE_API_TOKEN` is required for Cloudflare Radar downloads.
 OpenPageRank uses DomCop's public zipped top 10M CSV and does not require an API
-key for the current beta ingestion path.
+key for the current ingestion path.
 
 `THREATFOX_AUTH_KEY` is required for ThreatFox bulk exports. `PHISHTANK_APP_KEY`
 is optional, but recommended for automated PhishTank downloads.

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-08-15
+
+### Added
+- Multi-week release stability analyzer for public GitHub data release assets.
+- Release stability report for `data-2026-W23` through `data-2026-W32`,
+  covering schema stability, source freshness, public-domain churn, top-N
+  retention, and score drift.
+- v1 release-readiness report with public stability, dbt build, source
+  correlation, jackknife influence, and GitHub Actions health checks.
+
+### Changed
+- Promote the project status from beta to release candidate while keeping the
+  scoring methodology version at `v0.3.0-beta`.
+- Document successful scheduled `Weekly Data Refresh` runs as the production
+  validation basis for this release track.
+- Refresh README and methodology language for the v1 release-candidate scope.
+
 ## [0.2.0-beta] - 2026-06-06
 
 ### Added
