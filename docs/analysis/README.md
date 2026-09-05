@@ -30,6 +30,10 @@ Current stability reports:
 
 - [2026-08-09](./stability/2026-08-09.md)
 
+Current temporal meta-index research:
+
+- [2026-08-30](./meta-index/2026-08-30.md)
+
 Current release-readiness reports:
 
 - [2026-08-15](./release-readiness/2026-08-15.md)

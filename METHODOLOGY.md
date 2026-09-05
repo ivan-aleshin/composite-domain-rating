@@ -196,6 +196,26 @@ the broader universe for coverage diagnostics.
 The lineage JSON records source statuses, row counts, source metadata, the
 methodology version, and the archive row count.
 
+## Experimental Temporal Reputation Publication
+
+Weekly releases may also contain a separate experimental Dynamic Domain
+Reputation Index (DDRI) archive. It is derived exclusively from eight public
+aggregate consensus releases and does not change `consensus_score` or the
+primary public CSV schema.
+
+The experimental archive publishes a four-week EWMA reputation level, an
+eight-week trend label and strength, heuristic confidence, observed risk state,
+and a candidate score. When `ranking_sources_present` changes between the two
+latest snapshots, the candidate accepts half of the movement from the previous
+EWMA level to the current EWMA level. Trend and confidence are published as
+components but do not directly adjust the candidate score in the current
+experimental version.
+
+The DDRI confidence value is not a probability, and the candidate score is not
+a calibrated claim that a domain is safe, truthful, or suitable for a specific
+decision. See `docs/reputation-index.md` for the versioned formula, schema, and
+operational details.
+
 ## Snapshot Dates
 
 The mart `snapshot_date` is the index build date, not the date of every raw

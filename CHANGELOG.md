@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Experimental aggregate-only DDRI publication with temporal reputation,
+  confidence, trend, structural-shock, candidate-score, and observed-risk
+  fields.
+- Post-refresh GitHub Actions workflow that builds DDRI from eight public
+  consensus releases and attaches independent assets to weekly and latest data
+  releases.
+- Deterministic DDRI archive generation, input checksums, methodology metadata,
+  release-history downloader, and unit tests.
+
 ## [1.0.0-rc.1] - 2026-08-15
 
 ### Added
