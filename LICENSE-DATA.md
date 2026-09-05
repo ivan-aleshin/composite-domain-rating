@@ -15,6 +15,9 @@ The project publishes only derived aggregate output:
 - `consensus_score`
 - `coverage_tier`
 - source coverage summary
+- temporal aggregate components derived from published `consensus_score` and
+  source coverage summaries
+- experimental aggregate reputation candidate score
 - lineage and methodology metadata
 
 The project does not publish:

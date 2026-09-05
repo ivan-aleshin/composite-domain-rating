@@ -66,6 +66,8 @@ The latest derived archive is also published under stable asset URLs:
 
 - `https://github.com/ivan-aleshin/composite-domain-rating/releases/download/data-latest/domain_consensus_latest.csv.gz`
 - `https://github.com/ivan-aleshin/composite-domain-rating/releases/download/data-latest/meta_latest.json`
+- `https://github.com/ivan-aleshin/composite-domain-rating/releases/download/data-latest/domain_reputation_experimental_latest.csv.gz`
+- `https://github.com/ivan-aleshin/composite-domain-rating/releases/download/data-latest/meta_reputation_experimental_latest.json`
 
 The `data-latest` release is mutable and intended for automated consumers that
 want the newest available snapshot. For reproducible historical analysis, use
@@ -76,6 +78,10 @@ Each data release includes:
 - `domain_consensus_<snapshot_date>.csv.gz` — derived public output
 - `meta_<snapshot_date>.json` — lineage metadata with source statuses and
   methodology version
+- `domain_reputation_experimental_<snapshot_date>.csv.gz` — optional
+  aggregate-only temporal reputation components and candidate score
+- `meta_reputation_experimental_<snapshot_date>.json` — DDRI methodology,
+  exact input releases, checksums, and summary statistics
 
 The public CSV is sorted by `consensus_score` descending, then `sources_count`
 descending, then `registered_domain` ascending for deterministic ties.
@@ -85,6 +91,8 @@ candidate is `v1.0.0-rc.1`; the current scoring methodology is
 `v0.3.0-beta`.
 
 For interpretation details and limitations, see [METHODOLOGY.md](./METHODOLOGY.md).
+For the experimental temporal publication, see
+[docs/reputation-index.md](./docs/reputation-index.md).
 For source terms and publication constraints, see [LICENSE-DATA.md](./LICENSE-DATA.md).
 
 ## Getting started
@@ -222,6 +230,12 @@ stability using only GitHub release assets.
 The same export path is used by the weekly GitHub Actions refresh workflow,
 which can also be run manually from the Actions tab. Scheduled data releases
 are created as GitHub prereleases so they do not replace code releases.
+
+After a successful weekly consensus release, a separate workflow builds the
+experimental temporal reputation archive on an eight-calendar-week grid and
+attaches it to the same release. Up to two missing weekly releases remain empty
+calendar observations instead of stopping publication. A DDRI failure does not
+block or invalidate the primary consensus publication.
 
 The workflow expects these repository secrets:
 

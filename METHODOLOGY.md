@@ -196,11 +196,36 @@ the broader universe for coverage diagnostics.
 The lineage JSON records source statuses, row counts, source metadata, the
 methodology version, and the archive row count.
 
+## Experimental Temporal Reputation Publication
+
+Weekly releases may also contain a separate experimental Dynamic Domain
+Reputation Index (DDRI) archive. It is derived exclusively from an
+eight-calendar-week grid of public aggregate consensus releases and does not
+change `consensus_score` or the primary public CSV schema. One or two absent
+weekly releases are represented as missing observations rather than collapsing
+the time axis.
+
+The experimental archive publishes a four-week EWMA reputation level, an
+eight-week trend label and strength, heuristic confidence, observed risk state,
+and a candidate score. When `ranking_sources_present` changes between the two
+latest snapshots, the candidate accepts half of the movement from the previous
+EWMA level to the current EWMA level. Trend and confidence are published as
+components but do not directly adjust the candidate score in the current
+experimental version.
+
+The DDRI confidence value is not a probability, and the candidate score is not
+a calibrated claim that a domain is safe, truthful, or suitable for a specific
+decision. See `docs/reputation-index.md` for the versioned formula, schema, and
+operational details.
+
 ## Snapshot Dates
 
 The mart `snapshot_date` is the index build date, not the date of every raw
 source. This keeps each weekly archive internally coherent: one release is one
 index snapshot.
+
+Workflow refreshes default to the latest UTC Sunday even if the GitHub Actions
+runner starts later. Manual runs may supply an explicit date.
 
 Individual source dates and staleness information are recorded in the lineage
 JSON. This distinction matters because sources can refresh at different times or
