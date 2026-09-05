@@ -232,9 +232,10 @@ which can also be run manually from the Actions tab. Scheduled data releases
 are created as GitHub prereleases so they do not replace code releases.
 
 After a successful weekly consensus release, a separate workflow builds the
-experimental temporal reputation archive from the latest eight public
-snapshots and attaches it to the same release. A DDRI failure does not block or
-invalidate the primary consensus publication.
+experimental temporal reputation archive on an eight-calendar-week grid and
+attaches it to the same release. Up to two missing weekly releases remain empty
+calendar observations instead of stopping publication. A DDRI failure does not
+block or invalidate the primary consensus publication.
 
 The workflow expects these repository secrets:
 

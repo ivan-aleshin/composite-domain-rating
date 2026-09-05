@@ -1,6 +1,6 @@
 # Experimental Dynamic Domain Reputation Index
 
-Status: experimental. Methodology version: `ddri-v0.1.0-experimental`.
+Status: experimental. Methodology version: `ddri-v0.1.1-experimental`.
 
 The Dynamic Domain Reputation Index (DDRI) is a temporal layer over the public
 weekly `consensus_score`. It is built only from published aggregate archives.
@@ -23,6 +23,9 @@ Mutable copies are attached to `data-latest` as:
 
 The workflow can also be run manually for `data-latest` or an immutable
 `data-YYYY-WNN` tag. Its failure does not affect the primary consensus release.
+Consensus workflow runs without an explicit date derive `snapshot_date` from
+the latest UTC Sunday, so a delayed runner does not move the release into
+another ISO week.
 
 ## Components
 
@@ -80,14 +83,23 @@ not directly add a bonus or penalty to `ddri_score_candidate` in this version.
 | `snapshot_date` | Latest input snapshot date |
 | `ddri_methodology_version` | Version of the temporal methodology |
 
+The history is an eight-calendar-week grid. One or two missing weekly releases
+are represented as empty observations instead of compressing the time axis.
+Building requires at least six releases in the grid and at least three releases
+in its latest four weeks. Snapshot dates may drift by one day from their weekly
+spacing; each date, ISO release tag, filename, CSV value, and consensus
+methodology version must still agree.
+
 The CSV is sorted by candidate score descending, reputation score descending,
-and domain ascending. Gzip output is deterministic. Metadata records all eight
-input tags and SHA256 checksums, formula parameters, output checksum, component
-summaries, workflow run ID, and source commit SHA.
+and domain ascending. Gzip output is deterministic. Metadata records the full
+calendar grid, missing tags, available input tags and SHA256 checksums, formula
+parameters, output checksum, component summaries, workflow run ID, and source
+commit SHA. Empty rank-band noise scales are recorded as JSON `null`.
 
 ## Local Build
 
-Download eight weekly releases into one directory per release tag, then run:
+Download the available releases in an eight-week calendar window into one
+directory per release tag, then run:
 
 ```bash
 python scripts/build_reputation_release.py \
@@ -111,3 +123,7 @@ The parameters remain fixed while weekly component behavior is observed.
 Changing a formula requires a new `ddri_methodology_version`. The first formal
 review is planned after 26 homogeneous consensus snapshots; 52 snapshots are
 preferred before production calibration.
+
+The DDRI workflow installs the exact NumPy and pandas versions in
+`requirements-reputation.txt`; dependency changes therefore require an
+explicit repository change rather than silently changing numeric output.

@@ -17,13 +17,16 @@ from reputation_index import (
     HISTORY_WINDOW,
     LEVEL_HALF_LIFE_WEEKS,
     LEVEL_WINDOW,
+    MIN_HISTORY_RELEASES,
     MIN_HISTORY_SHARE,
+    MIN_LEVEL_RELEASES,
     MOMENTUM_CONFIDENCE_KAPPA,
     MOMENTUM_SLOPE_CLIP,
     PUBLIC_COLUMNS,
     RANK_BAND_CAPS,
     RANK_BAND_LABELS,
     SHOCK_DAMPING,
+    SNAPSHOT_DATE_TOLERANCE_DAYS,
     build_reputation_snapshot,
     discover_release_assets,
     json_safe,
@@ -77,9 +80,13 @@ def write_metadata(
         "methodology": {
             "input_scope": "public aggregate domain consensus releases only",
             "history_window_weeks": HISTORY_WINDOW,
+            "minimum_history_releases": MIN_HISTORY_RELEASES,
             "level_window_weeks": LEVEL_WINDOW,
+            "minimum_level_releases": MIN_LEVEL_RELEASES,
             "level_half_life_weeks": LEVEL_HALF_LIFE_WEEKS,
             "minimum_history_share": MIN_HISTORY_SHARE,
+            "missing_releases_preserve_calendar_slots": True,
+            "snapshot_date_tolerance_days": SNAPSHOT_DATE_TOLERANCE_DAYS,
             "trend_confirmation_standard_errors": MOMENTUM_CONFIDENCE_KAPPA,
             "trend_slope_clip_points_per_week": MOMENTUM_SLOPE_CLIP,
             "rank_band_labels": list(RANK_BAND_LABELS),
@@ -101,6 +108,12 @@ def write_metadata(
             }
             for asset in assets
         ],
+        "history_calendar": {
+            "release_tags": list(build.history_tags),
+            "missing_release_tags": sorted(
+                set(build.history_tags) - {asset.tag for asset in assets}
+            ),
+        },
         "statistics": {
             "reputation_score": quantile_summary(frame["reputation_score"]),
             "reputation_confidence": quantile_summary(frame["reputation_confidence"]),

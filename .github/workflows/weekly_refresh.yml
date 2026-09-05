@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       snapshot_date:
-        description: "Snapshot date to use for source loads and mart build (YYYY-MM-DD). Defaults to run date."
+        description: "Snapshot date for source loads and mart build (YYYY-MM-DD). Defaults to the latest UTC Sunday."
         required: false
         type: string
       create_release:
@@ -89,7 +89,8 @@ jobs:
           if [ -n "$INPUT_SNAPSHOT_DATE" ]; then
             SNAPSHOT_DATE="$INPUT_SNAPSHOT_DATE"
           else
-            SNAPSHOT_DATE="$(date -u +%F)"
+            days_since_sunday=$(($(date -u +%u) % 7))
+            SNAPSHOT_DATE="$(date -u -d "$days_since_sunday days ago" +%F)"
           fi
           echo "snapshot_date=$SNAPSHOT_DATE" >> "$GITHUB_OUTPUT"
           echo "SNAPSHOT_DATE=$SNAPSHOT_DATE" >> "$GITHUB_ENV"

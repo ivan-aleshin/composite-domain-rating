@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deterministic DDRI archive generation, input checksums, methodology metadata,
   release-history downloader, and unit tests.
 
+### Changed
+- Make DDRI resilient to one or two absent weekly releases by preserving an
+  eight-week calendar grid with explicit missing observations.
+- Anchor scheduled snapshot dates to the target UTC Sunday and validate every
+  input filename, CSV snapshot date, release tag, and methodology version.
+- Pin NumPy and pandas for reproducible DDRI output and share canonical rolling,
+  trend, ranking, and scale-aware calculations with research scripts.
+
 ## [1.0.0-rc.1] - 2026-08-15
 
 ### Added

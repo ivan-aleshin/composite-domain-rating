@@ -7,7 +7,7 @@ tldextract>=5.1.0
 idna>=3.7
 
 # Data ingestion
-pandas>=2.2.0
+-r requirements-reputation.txt
 requests>=2.32.0
 pyyaml>=6.0
 google-cloud-bigquery>=3.20.0

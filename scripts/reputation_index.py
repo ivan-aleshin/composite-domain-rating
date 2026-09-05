@@ -17,11 +17,14 @@ import numpy as np
 import pandas as pd
 
 
-DDRI_METHODOLOGY_VERSION = "ddri-v0.1.0-experimental"
+DDRI_METHODOLOGY_VERSION = "ddri-v0.1.1-experimental"
 HISTORY_WINDOW = 8
 LEVEL_WINDOW = 4
 LEVEL_HALF_LIFE_WEEKS = 2.0
 MIN_HISTORY_SHARE = 0.75
+SNAPSHOT_DATE_TOLERANCE_DAYS = 1
+MIN_HISTORY_RELEASES = max(3, math.ceil(HISTORY_WINDOW * MIN_HISTORY_SHARE))
+MIN_LEVEL_RELEASES = max(3, math.ceil(LEVEL_WINDOW * MIN_HISTORY_SHARE))
 MAX_RANKING_SOURCES = 5
 MOMENTUM_SLOPE_CLIP = 3.0
 MOMENTUM_CONFIDENCE_KAPPA = 1.5
@@ -39,14 +42,14 @@ SOURCE_BITS = {
     "crux": 8,
     "opr": 16,
 }
-HISTORY_COLUMNS = (
+SCORE_COLUMNS = (
     "registered_domain",
     "consensus_score",
     "sources_count",
     "ranking_sources_present",
     "risk_sources_count",
 )
-LATEST_COLUMNS = HISTORY_COLUMNS + ("snapshot_date",)
+INPUT_COLUMNS = SCORE_COLUMNS + ("snapshot_date", "methodology_version")
 PUBLIC_COLUMNS = (
     "registered_domain",
     "reputation_score",
@@ -62,6 +65,7 @@ PUBLIC_COLUMNS = (
 )
 DATED_CSV_PATTERN = re.compile(r"^domain_consensus_\d{4}-\d{2}-\d{2}\.csv\.gz$")
 DATED_META_PATTERN = re.compile(r"^meta_\d{4}-\d{2}-\d{2}\.json$")
+WEEKLY_TAG_PATTERN = re.compile(r"^data-(\d{4})-W(\d{2})$")
 
 
 @dataclass(frozen=True)
@@ -78,6 +82,7 @@ class ReputationBuild:
     frame: pd.DataFrame
     noise_scales: np.ndarray
     input_assets: tuple[ReleaseAsset, ...]
+    history_tags: tuple[str, ...]
 
 
 def sha256_file(path: Path) -> str:
@@ -95,6 +100,87 @@ def _single_matching_file(directory: Path, pattern: re.Pattern[str], label: str)
             f"Expected one dated {label} under {directory}, found {len(matches)}"
         )
     return matches[0]
+
+
+def weekly_tag_date(tag: str) -> date:
+    match = WEEKLY_TAG_PATTERN.fullmatch(tag)
+    if not match:
+        raise RuntimeError(f"Invalid weekly release tag: {tag}")
+    return date.fromisocalendar(int(match.group(1)), int(match.group(2)), 1)
+
+
+def weekly_tag(value: date) -> str:
+    iso_year, iso_week, _ = value.isocalendar()
+    return f"data-{iso_year}-W{iso_week:02d}"
+
+
+def history_tags(latest_tag: str, window: int = HISTORY_WINDOW) -> tuple[str, ...]:
+    latest_week = weekly_tag_date(latest_tag)
+    return tuple(
+        weekly_tag(latest_week - timedelta(weeks=offset))
+        for offset in range(window - 1, -1, -1)
+    )
+
+
+def _validate_history_assets(assets: list[ReleaseAsset]) -> tuple[str, ...]:
+    if not assets:
+        raise RuntimeError("No public consensus snapshots found")
+
+    assets.sort(key=lambda asset: weekly_tag_date(asset.tag))
+    expected_tags = history_tags(assets[-1].tag)
+    expected_tag_set = set(expected_tags)
+    selected_tags = {asset.tag for asset in assets}
+    if not selected_tags.issubset(expected_tag_set):
+        unexpected = sorted(selected_tags - expected_tag_set)
+        raise RuntimeError(f"Snapshots outside the DDRI history window: {unexpected}")
+
+    if len(assets) < MIN_HISTORY_RELEASES:
+        raise RuntimeError(
+            f"At least {MIN_HISTORY_RELEASES} of the latest {HISTORY_WINDOW} weekly releases "
+            f"are required, found {len(assets)}"
+        )
+    recent_tags = set(expected_tags[-LEVEL_WINDOW:])
+    recent_count = sum(asset.tag in recent_tags for asset in assets)
+    if recent_count < MIN_LEVEL_RELEASES:
+        raise RuntimeError(
+            f"At least {MIN_LEVEL_RELEASES} of the latest {LEVEL_WINDOW} weekly releases "
+            f"are required, found {recent_count}"
+        )
+
+    parsed_dates = [date.fromisoformat(asset.snapshot_date) for asset in assets]
+    if len(set(parsed_dates)) != len(parsed_dates):
+        raise RuntimeError(
+            "Duplicate snapshot dates in DDRI history: "
+            + ", ".join(value.isoformat() for value in parsed_dates)
+        )
+    for asset, snapshot_date in zip(assets, parsed_dates):
+        expected_tag = weekly_tag(snapshot_date)
+        if asset.tag != expected_tag:
+            raise RuntimeError(
+                f"Snapshot {asset.snapshot_date} must use release tag {expected_tag}, "
+                f"found {asset.tag}"
+            )
+    for previous_asset, current_asset, previous_date, current_date in zip(
+        assets, assets[1:], parsed_dates, parsed_dates[1:]
+    ):
+        expected_days = (
+            weekly_tag_date(current_asset.tag) - weekly_tag_date(previous_asset.tag)
+        ).days
+        actual_days = (current_date - previous_date).days
+        if abs(actual_days - expected_days) > SNAPSHOT_DATE_TOLERANCE_DAYS:
+            raise RuntimeError(
+                "Snapshot dates must follow weekly release spacing within "
+                f"+/-{SNAPSHOT_DATE_TOLERANCE_DAYS} day; found "
+                f"{previous_date.isoformat()} then {current_date.isoformat()}"
+            )
+
+    versions = {asset.methodology_version for asset in assets}
+    if len(versions) != 1:
+        raise RuntimeError(
+            "DDRI history must use one consensus methodology version; found "
+            + ", ".join(sorted(versions))
+        )
+    return expected_tags
 
 
 def discover_release_assets(release_root: Path) -> list[ReleaseAsset]:
@@ -120,6 +206,13 @@ def discover_release_assets(release_root: Path) -> list[ReleaseAsset]:
             raise RuntimeError(
                 f"Release tag mismatch for {metadata_path}: {metadata_tag} != {release_dir.name}"
             )
+        expected_csv_name = f"domain_consensus_{snapshot_date}.csv.gz"
+        expected_metadata_name = f"meta_{snapshot_date}.json"
+        if csv_path.name != expected_csv_name or metadata_path.name != expected_metadata_name:
+            raise RuntimeError(
+                f"Asset date mismatch under {release_dir}: expected "
+                f"{expected_csv_name} and {expected_metadata_name}"
+            )
         assets.append(
             ReleaseAsset(
                 tag=release_dir.name,
@@ -130,36 +223,11 @@ def discover_release_assets(release_root: Path) -> list[ReleaseAsset]:
             )
         )
 
-    assets.sort(key=lambda asset: asset.snapshot_date)
-    if len(assets) < HISTORY_WINDOW:
-        raise RuntimeError(
-            f"At least {HISTORY_WINDOW} public snapshots are required, found {len(assets)}"
-        )
-    selected = assets[-HISTORY_WINDOW:]
-    dates = [asset.snapshot_date for asset in selected]
-    if len(set(dates)) != len(dates):
-        raise RuntimeError(f"Duplicate snapshot dates in DDRI history: {dates}")
-    parsed_dates = [date.fromisoformat(value) for value in dates]
-    for previous, current in zip(parsed_dates, parsed_dates[1:]):
-        if current - previous != timedelta(days=7):
-            raise RuntimeError(
-                "DDRI history must contain consecutive seven-day snapshots; "
-                f"found {previous.isoformat()} then {current.isoformat()}"
-            )
-    for asset, snapshot_date in zip(selected, parsed_dates):
-        iso_year, iso_week, _ = snapshot_date.isocalendar()
-        expected_tag = f"data-{iso_year}-W{iso_week:02d}"
-        if asset.tag != expected_tag:
-            raise RuntimeError(
-                f"Snapshot {asset.snapshot_date} must use release tag {expected_tag}, "
-                f"found {asset.tag}"
-            )
-    versions = {asset.methodology_version for asset in selected}
-    if len(versions) != 1:
-        raise RuntimeError(
-            "DDRI history must use one consensus methodology version; found "
-            + ", ".join(sorted(versions))
-        )
+    assets.sort(key=lambda asset: weekly_tag_date(asset.tag))
+    latest_tag = assets[-1].tag if assets else ""
+    selected_tag_set = set(history_tags(latest_tag)) if latest_tag else set()
+    selected = [asset for asset in assets if asset.tag in selected_tag_set]
+    _validate_history_assets(selected)
     return selected
 
 
@@ -184,6 +252,14 @@ def _validate_release_frame(frame: pd.DataFrame, asset: ReleaseAsset) -> None:
     scores = frame["consensus_score"].dropna()
     if not scores.between(0, 100, inclusive="both").all():
         raise RuntimeError(f"consensus_score outside [0, 100] in {asset.csv_path}")
+    if frame["snapshot_date"].isna().any() or set(
+        frame["snapshot_date"].astype(str).unique()
+    ) != {asset.snapshot_date}:
+        raise RuntimeError(f"Snapshot date mismatch in {asset.csv_path}")
+    if frame["methodology_version"].isna().any() or set(
+        frame["methodology_version"].astype(str).unique()
+    ) != {asset.methodology_version}:
+        raise RuntimeError(f"Methodology version mismatch in {asset.csv_path}")
 
 
 def load_release_history(
@@ -191,7 +267,7 @@ def load_release_history(
 ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     latest = pd.read_csv(
         assets[-1].csv_path,
-        usecols=LATEST_COLUMNS,
+        usecols=INPUT_COLUMNS,
         dtype={
             "registered_domain": "string",
             "consensus_score": "float32",
@@ -199,14 +275,13 @@ def load_release_history(
             "ranking_sources_present": "string",
             "risk_sources_count": "uint8",
             "snapshot_date": "string",
+            "methodology_version": "string",
         },
     )
     _validate_release_frame(latest, assets[-1])
     latest = latest.dropna(subset=["consensus_score"])
     if latest.empty:
         raise RuntimeError(f"Latest release has no scored domains: {assets[-1].csv_path}")
-    if set(latest["snapshot_date"].dropna().unique()) != {assets[-1].snapshot_date}:
-        raise RuntimeError(f"Snapshot date mismatch in {assets[-1].csv_path}")
     latest = latest.set_index("registered_domain", drop=False)
     domains = latest.index
 
@@ -214,17 +289,29 @@ def load_release_history(
     source_count_columns: list[np.ndarray] = []
     source_mask_columns: list[np.ndarray] = []
     risk_count_columns: list[np.ndarray] = []
-    for asset in assets:
+    assets_by_tag = {asset.tag: asset for asset in assets}
+    for tag in history_tags(assets[-1].tag):
+        asset = assets_by_tag.get(tag)
+        if asset is None:
+            print(f"Missing weekly snapshot {tag}; padding calendar slot", flush=True)
+            score_columns.append(np.full(len(domains), np.nan, dtype=np.float32))
+            source_count_columns.append(np.zeros(len(domains), dtype=np.uint8))
+            source_mask_columns.append(np.zeros(len(domains), dtype=np.uint8))
+            risk_count_columns.append(np.zeros(len(domains), dtype=np.uint8))
+            continue
+
         print(f"Loading {asset.tag} ({asset.snapshot_date})", flush=True)
         frame = pd.read_csv(
             asset.csv_path,
-            usecols=HISTORY_COLUMNS,
+            usecols=INPUT_COLUMNS,
             dtype={
                 "registered_domain": "string",
                 "consensus_score": "float32",
                 "sources_count": "uint8",
                 "ranking_sources_present": "string",
                 "risk_sources_count": "uint8",
+                "snapshot_date": "string",
+                "methodology_version": "string",
             },
         )
         _validate_release_frame(frame, asset)
@@ -314,10 +401,13 @@ def rolling_components(values: np.ndarray, window: int) -> dict[str, np.ndarray]
         out=np.zeros_like(sum_y),
         where=weighted_observed.sum(axis=1) > 0,
     )
+    mean = np.divide(sum_y, count, out=np.zeros_like(sum_y), where=count > 0)
     return {
         "eligible": eligible,
         "observation_count": count,
+        "mean": mean,
         "ewma": ewma,
+        "fitted_current": intercept + slope * (window - 1),
         "slope": slope,
         "slope_standard_error": slope_standard_error,
         "residual_std": residual_std,
@@ -364,7 +454,7 @@ def band_noise_confidence(
     eligible: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     confidence = np.zeros_like(residual_std)
-    scales = np.zeros(len(RANK_BAND_LABELS), dtype=np.float64)
+    scales = np.full(len(RANK_BAND_LABELS), np.nan, dtype=np.float64)
     for band_index in range(len(RANK_BAND_LABELS)):
         mask = eligible & (bands == band_index)
         if not mask.any():
@@ -396,8 +486,7 @@ def risk_states(current: np.ndarray, recent: np.ndarray) -> np.ndarray:
 
 
 def build_reputation_snapshot(assets: list[ReleaseAsset]) -> ReputationBuild:
-    if len(assets) != HISTORY_WINDOW:
-        raise RuntimeError(f"Exactly {HISTORY_WINDOW} selected snapshots are required")
+    slot_tags = _validate_history_assets(assets)
     latest, scores, source_counts, source_masks, risk_counts = load_release_history(assets)
     latest_scores = scores[:, -1]
     ranks = ordinal_ranks(latest_scores)
@@ -482,7 +571,12 @@ def build_reputation_snapshot(assets: list[ReleaseAsset]) -> ReputationBuild:
         ignore_index=True,
     )
     validate_reputation_snapshot(frame)
-    return ReputationBuild(frame=frame, noise_scales=noise_scales, input_assets=tuple(assets))
+    return ReputationBuild(
+        frame=frame,
+        noise_scales=noise_scales,
+        input_assets=tuple(assets),
+        history_tags=slot_tags,
+    )
 
 
 def validate_reputation_snapshot(frame: pd.DataFrame) -> None:
@@ -537,7 +631,10 @@ def json_safe(value: Any) -> Any:
     if isinstance(value, np.integer):
         return int(value)
     if isinstance(value, np.floating):
-        return float(value)
+        converted = float(value)
+        return converted if math.isfinite(converted) else None
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
     if isinstance(value, np.ndarray):
         return [json_safe(item) for item in value]
     if isinstance(value, dict):

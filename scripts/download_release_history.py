@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import subprocess
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -45,11 +46,18 @@ def select_history_tags(tags: list[str], current_tag: str, count: int) -> list[s
     )
     if current_tag not in weekly_tags:
         raise RuntimeError(f"Current release tag not found: {current_tag}")
-    current_index = weekly_tags.index(current_tag)
-    selected = weekly_tags[max(0, current_index - count + 1) : current_index + 1]
-    if len(selected) != count:
+    current_date = weekly_tag_date(current_tag)
+    first_date = current_date - timedelta(weeks=count - 1)
+    selected = [
+        tag
+        for tag in weekly_tags
+        if first_date <= weekly_tag_date(tag) <= current_date
+    ]
+    minimum_count = math.ceil(count * 0.75)
+    if len(selected) < minimum_count:
         raise RuntimeError(
-            f"Need {count} weekly releases through {current_tag}, found {len(selected)}"
+            f"Need at least {minimum_count} of {count} calendar-week releases through "
+            f"{current_tag}, found {len(selected)}"
         )
     return selected
 

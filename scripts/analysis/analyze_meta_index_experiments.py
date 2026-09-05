@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,11 +14,22 @@ import numpy as np
 import pandas as pd
 
 
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPTS_DIR))
+
+from reputation_index import (  # noqa: E402
+    MOMENTUM_SLOPE_CLIP,
+    RANK_BAND_CAPS,
+    RANK_BAND_LIMITS,
+    confirmed_slope,
+    ordinal_ranks,
+    rank_bands,
+    rolling_components as calculate_rolling_components,
+    scale_aware_adjustment as calculate_scale_aware_adjustment,
+)
+
+
 TOP_N_VALUES = (100, 1_000, 10_000, 100_000)
-MOMENTUM_SLOPE_CLIP = 3.0
-MOMENTUM_CONFIDENCE_KAPPA = 1.5
-RANK_BAND_LIMITS = (100, 1_000, 10_000, 100_000)
-RANK_BAND_CAPS = np.array((0.01, 0.03, 0.10, 0.30, 0.75))
 CANDIDATE_NAMES = (
     "sma",
     "ewma",
@@ -93,85 +105,7 @@ def rolling_components(
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     current_rows = np.flatnonzero(np.isfinite(values[:, current_index]))
     block = values[current_rows, current_index - window + 1 : current_index + 1]
-    observed = np.isfinite(block)
-    filled = np.where(observed, block, 0.0).astype(np.float64, copy=False)
-    count = observed.sum(axis=1)
-    minimum_observations = max(3, math.ceil(window * 0.75))
-    eligible = count >= minimum_observations
-
-    x = np.arange(window, dtype=np.float64)
-    weights = np.power(0.5, (window - 1 - x) / (window / 2))
-    weighted_observed = observed * weights
-
-    sum_y = filled.sum(axis=1)
-    mean = np.divide(sum_y, count, out=np.zeros_like(sum_y), where=count > 0)
-    ewma_numerator = (filled * weights).sum(axis=1)
-    ewma_denominator = weighted_observed.sum(axis=1)
-    ewma = np.divide(
-        ewma_numerator,
-        ewma_denominator,
-        out=np.zeros_like(ewma_numerator),
-        where=ewma_denominator > 0,
-    )
-
-    sum_x = (observed * x).sum(axis=1)
-    sum_xx = (observed * x * x).sum(axis=1)
-    sum_xy = (filled * x).sum(axis=1)
-    sum_yy = (filled * filled).sum(axis=1)
-    denominator = count * sum_xx - sum_x * sum_x
-    slope = np.divide(
-        count * sum_xy - sum_x * sum_y,
-        denominator,
-        out=np.zeros_like(sum_y),
-        where=denominator > 0,
-    )
-    intercept = np.divide(
-        sum_y - slope * sum_x,
-        count,
-        out=np.zeros_like(sum_y),
-        where=count > 0,
-    )
-    fitted_current = intercept + slope * (window - 1)
-
-    residual_sse = (
-        sum_yy
-        - 2 * intercept * sum_y
-        - 2 * slope * sum_xy
-        + intercept * intercept * count
-        + 2 * intercept * slope * sum_x
-        + slope * slope * sum_xx
-    )
-    residual_sse = np.maximum(residual_sse, 0)
-    residual_std = np.sqrt(
-        np.divide(
-            residual_sse,
-            count - 2,
-            out=np.zeros_like(residual_sse),
-            where=count > 2,
-        )
-    )
-    centered_sum_xx = sum_xx - np.divide(
-        sum_x * sum_x,
-        count,
-        out=np.zeros_like(sum_xx),
-        where=count > 0,
-    )
-    slope_standard_error = np.divide(
-        residual_std,
-        np.sqrt(centered_sum_xx),
-        out=np.full_like(residual_std, np.inf),
-        where=centered_sum_xx > 0,
-    )
-
-    return current_rows, {
-        "eligible": eligible,
-        "mean": mean,
-        "ewma": ewma,
-        "fitted_current": fitted_current,
-        "slope": slope,
-        "slope_standard_error": slope_standard_error,
-        "residual_std": residual_std,
-    }
+    return current_rows, calculate_rolling_components(block, window)
 
 
 def full_scores(
@@ -185,19 +119,6 @@ def full_scores(
     return result
 
 
-def ordinal_ranks(scores: np.ndarray) -> np.ndarray:
-    order = np.argsort(-scores, kind="stable")
-    ranks = np.empty(len(scores), dtype=np.int32)
-    ranks[order] = np.arange(1, len(scores) + 1, dtype=np.int32)
-    return ranks
-
-
-def confirmed_slope(components: dict[str, np.ndarray]) -> np.ndarray:
-    slope = np.clip(components["slope"], -MOMENTUM_SLOPE_CLIP, MOMENTUM_SLOPE_CLIP)
-    threshold = MOMENTUM_CONFIDENCE_KAPPA * components["slope_standard_error"]
-    return np.sign(slope) * np.maximum(np.abs(slope) - threshold, 0)
-
-
 def scale_aware_adjustment(
     slope: np.ndarray,
     ranks: np.ndarray,
@@ -205,16 +126,11 @@ def scale_aware_adjustment(
     *,
     asymmetric: bool,
 ) -> np.ndarray:
-    band = np.searchsorted(RANK_BAND_LIMITS, ranks, side="left")
-    adjustment = np.zeros_like(slope)
-    for band_index, cap in enumerate(RANK_BAND_CAPS):
-        mask = eligible & (band == band_index)
-        if not mask.any():
-            continue
-        band_slope = slope[mask]
-        center = np.median(band_slope)
-        scale = max(1.4826 * np.median(np.abs(band_slope - center)), 0.05)
-        adjustment[mask] = cap * np.tanh(band_slope / scale)
+    adjustment = calculate_scale_aware_adjustment(
+        slope,
+        rank_bands(ranks),
+        eligible,
+    )
     if asymmetric:
         adjustment = np.where(adjustment < 0, adjustment * 1.5, adjustment)
     return adjustment
