@@ -107,5 +107,5 @@ jobs:
           path: |
             data/archive/*/domain_reputation_experimental_*.csv.gz
             data/archive/*/meta_reputation_experimental_*.json
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: error
